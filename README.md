@@ -213,7 +213,7 @@ To disassemble a load module:
     |   ---  | ---     |
     | `,`    | Scan following hex as CODE and generate a label. <br/>*Remember: Comma=Code* |
     | `.`    | Scan following hex as DATA and generate a label. <br/>*Remember: Dot=Data* |
-    | `|`    | Scan following hex as DATA but do NOT generate a label. This can be used to break up data into logical  pieces that do not need to be addressed individually via a label. <br/>*Remember: Bar=Break* |
+    | <code>&#124;</code>    | Scan following hex as DATA but do NOT generate a label. This can be used to break up data into logical  pieces that do not need to be addressed individually via a label. <br/>*Remember: Bar=Break* |
     | `/`    |  Clear all tags and scan the following hex as DATA. This is equivalent to specifying a null tag `()` but saves a keystroke |
 
 1. Optionally, tag the hex more rigorously using **tags** (see the TAGS section below). 
