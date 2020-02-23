@@ -2,7 +2,10 @@
 
 ## FUNCTION
 
-The DA rexx procedure disassembles the AMBLIST output that you are currently editing with ISPF/EDIT.
+The DA rexx procedure disassembles the AMBLIST output that you are currently editing with ISPF/EDIT. 
+
+This can be very handy for mainframe sites that have somehow lost the source code to an important executable. All you need to do is run the DA edit macro against the output from an AMBLIST module listing of the executable. It is an iterative process, but at the end of the day you will have an assembler source file that, when assembled, should recreate the executable load module. With some effort it should also be possible to reconstruct an equivalent high level language (COBOL, PLI, etc) source file from the assembly language source.
+
 
 *   If DA is invoked outside of the ISPF editor then it
     will generate and edit an AMBLIST job that you can
