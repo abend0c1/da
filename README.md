@@ -47,7 +47,7 @@ Disassembly is usually an iterative process:
     of that block of data.
 
 1.  Mark the beginning of areas known to be code with a
-    dot (`.`) and those known to be data with a comma (`,`).
+    comma (`,`) and those known to be data with a dot (`.`).
     
     *Remember: Comma-for-Code, Dot-for-Data.*
     
