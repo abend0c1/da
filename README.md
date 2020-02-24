@@ -53,7 +53,7 @@ Disassembly is usually an iterative process:
     
     Run DA again until no TODO comments are seen.
 
-1.  Optionally, tag the AMBLIST output. There is much more detail on tagging in the USAGE section below.
+1.  Optionally, tag the AMBLIST output. There is much more detail on tagging in the [USAGE](#usage) section below.
     
     Tags are strings enclosed in parentheses and can be used to:
 
@@ -137,7 +137,7 @@ Disassembly is usually an iterative process:
         WA_44    DS    XL4
         ```
 
-    * Do some other useful things (see the TAGS section below)
+    * Do some other useful things (see the [TAGS](#tags) section below)
 
 1.  Assemble the disassembled source file. 
 
