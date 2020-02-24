@@ -53,7 +53,7 @@ Disassembly is usually an iterative process:
     
     Run DA again until no TODO comments are seen.
 
-1.  Optionally, tag the AMBLIST output. There is much more detail on tagging in the USAGE section below.
+1.  Optionally, tag the AMBLIST output. There is much more detail on tagging in the [USAGE](#usage) section below.
     
     Tags are strings enclosed in parentheses and can be used to:
 
@@ -137,7 +137,7 @@ Disassembly is usually an iterative process:
         WA_44    DS    XL4
         ```
 
-    * Do some other useful things (see the TAGS section below)
+    * Do some other useful things (see the [TAGS](#tags) section below)
 
 1.  Assemble the disassembled source file. 
 
@@ -219,7 +219,7 @@ To disassemble a load module:
     | <code>&#124;</code>    | Scan following hex as DATA but do NOT generate a label. This can be used to break up data into logical  pieces that do not need to be addressed individually via a label. <br/>*Remember: Bar=Break* |
     | `/`    |  Clear all tags and scan the following hex as DATA. This is equivalent to specifying a null tag `()` but saves a keystroke |
 
-1. Optionally, tag the hex more rigorously using **tags** (see the TAGS section below). 
+1. Optionally, tag the hex more rigorously using **tags** (see the [TAGS](#tags) section below). 
    
    Tags are a way to further clarify how CODE or DATA blocks should be interpreted. Zero or more tags can be enclosed in parentheses and separated by commas as follows:
 
