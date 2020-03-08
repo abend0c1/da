@@ -442,6 +442,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200305 AA  Fixed handling of (label) tag that begins **
+**                         with the letter R. For example (Return).  **
 **            20200106 AA  Reworked operand length hints.            **
 **            20191213 AA  Allowed dsn to be specified on DA command.**
 **            20191212 AA  Added description to the "=>" tag.        **
@@ -971,7 +973,7 @@ xc: procedure expose g.
 return '....'
 
 toPrintable: procedure expose g.
-  parse arg xData
+  parse arg xData .
   sData = x2c(xData)
 return translate(sData,g.0EBCDIC,g.0EBCDIC||xrange('00'x,'ff'x),'.')
 
@@ -989,6 +991,12 @@ return
 handleTag: procedure expose g.
   parse arg sTag1 +1 0 sTag
   sTag = translate(sTag,' ',g.0HARDBLANK) /* Soften hard blanks */
+  if sTag = 'R'
+  then do 
+    parse var sTag 'R'nn'='sLabel
+    sRegisters = getRegisterList('R'nn)
+    nRegisters = words(sRegisters)
+  end
   select
     when sTag = '',                           /* ()  ...reset data type */
       | inset(sTag,'A B C F H P S X') then do /* (x) ...set data type   */
@@ -1017,10 +1025,7 @@ handleTag: procedure expose g.
         end
       end
     end
-    when sTag1 = 'R' then do           /* (Rnn[+Rmm...][=][label]) */
-      parse var sTag 'R'nn'='sLabel
-      sRegisters = getRegisterList('R'nn)
-      nRegisters = words(sRegisters)
+    when sTag1 = 'R' & sRegisters <> '' then do  /* (Rnn[+Rmm...][=][label]) */
       parse var sLabel sLabel"'"sDesc"'" /* Peel off the label description */
       select
         when left(sLabel,1) = '>' then do /* Rnn[+Rmm...]=>dsect */
@@ -1045,10 +1050,6 @@ handleTag: procedure expose g.
             dLoc = dLoc + 4096
           end
           call attachDirective g.0XLOC,'USING' sLabel','using(sRegisters),1
-        end
-        when sRegisters = '' then do   /* (label) just starts with R */
-          parse var sTag sLabel .
-          call defLabel sLabel,g.0XLOC
         end
         when pos('=',sTag) = 0 then do /* (Rnn[+Rmm...])           */
           /* USING *,Rnn[,Rmm...] */
