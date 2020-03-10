@@ -991,7 +991,7 @@ return
 handleTag: procedure expose g.
   parse arg sTag1 +1 0 sTag
   sTag = translate(sTag,' ',g.0HARDBLANK) /* Soften hard blanks */
-  if sTag = 'R'
+  if sTag1 = 'R'
   then do 
     parse var sTag 'R'nn'='sLabel
     sRegisters = getRegisterList('R'nn)
