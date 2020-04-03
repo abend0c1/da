@@ -442,6 +442,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200316 AA  Fixed length hints for SS-a/b formats.    **
 **            20200305 AA  Fixed handling of (label) tag that begins **
 **                         with the letter R. For example (Return).  **
 **            20200106 AA  Reworked operand length hints.            **
@@ -3020,9 +3021,9 @@ SIYu   . ldb(DH1||DL1,B1) u(I2)         hint(1,B1,DH1||DL1)
 SMI   12 O1 +2 M1 +1     . +1  B3 +1  D3 +3 RI2 +4
 SMI    . m(M1) s4(RI2) db(D3,B1)
 SSa   12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSa    . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B2,D2)
+SSa    . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B1,D1) hint(l(L1),B2,D2)
 SSb   12 O1 +2 L1 +1    L2 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)
+SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    hint(l(L1),B1,D1) hint(l(L1),B2,D2)
 SSc   12 O1 +2 L1 +1    I3 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)
 SSd   12 O1 +2 R1 +1    R3 +1  B1 +1  D1 +3  B2 +1  D2 +3
@@ -4317,15 +4318,15 @@ CXPT    EDAF RSLb   . Convert from Packed (to ED) =l(L2)
 PLO     EE   SSe1   c Perform Locked Operation
 LMD     EF   SSe    . Load Multiple Disjoint (64<-32+32)
 SRP     F0   SSc    A Shift and Round Decimal
-MVO     F1   SSb    . Move with Offset =l(L1)
-PACK    F2   SSb    . Pack =l(L1)
-UNPK    F3   SSb    c Unpack =l(L1)
-ZAP     F8   SSb    A Zero and Add =l(L1)
-CP      F9   SSb    C Compare Decimal =l(L1)
-AP      FA   SSb    A Add Decimal =l(L1)
-SP      FB   SSb    A Subtract Decimal =l(L1)
-MP      FC   SSb    A Multiply Decimal =l(L1)
-DP      FD   SSb    A Divide Decimal =l(L1)
+MVO     F1   SSb    . Move with Offset
+PACK    F2   SSb    . Pack
+UNPK    F3   SSb    c Unpack
+ZAP     F8   SSb    A Zero and Add
+CP      F9   SSb    C Compare Decimal
+AP      FA   SSb    A Add Decimal
+SP      FB   SSb    A Subtract Decimal
+MP      FC   SSb    A Multiply Decimal
+DP      FD   SSb    A Divide Decimal
 END-INSTRUCTION-DEFINITIONS
 
 
