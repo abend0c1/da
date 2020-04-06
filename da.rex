@@ -454,6 +454,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200407 AA  Show the target of an EX or EXRL as a     **
+**                         comment.                                  **
 **            20200401 AA  Added '(.=xxx)' tag so that data labels   **
 **                         can be applied in advance. Inserted one   **
 **                         of these tags for each undefined label    **
@@ -665,36 +667,53 @@ trace o
        assigned to this location then a 'DC 0XLnn' directive will be
        inserted to cover the entire field referenced by the instruction.
     */
-    if g.0CLENG.xLoc <> ''     /* Length actually used in an inst */
-    then do
-      parse var g.0STMT.n sLabel sOp sOperand .
-      if sOp = 'DC'
+    if left(g.0STMT.n) = ' '
+    then parse var g.0STMT.n        sOp sOperand sDesc 100 .
+    else parse var g.0STMT.n sLabel sOp sOperand sDesc 100 .
+    select
+      when sOp = 'DC' &,       /* A constant, and...                     */
+           g.0CLENG.xLoc <> '' /* An instruction specified its length    */
       then do
-        sType = left(sOperand,1)
-        if sType = 'A'
-        then parse var sOperand 'A'nLen'('sValue')'        /* A() syntax */
-        else parse var sOperand (sType) nLen"'"sValue"'"   /* X'' syntax */
-        if left(nLen,1) = 'L'
-        then nLen = substr(nLen,2)
-        else do
-          if nLen = ''
-          then do
-            select
-              when sType = 'A' then nLen = 4
-              when sType = 'F' then nLen = 4
-              when sType = 'H' then nLen = 2
-              when sType = 'S' then nLen = 2
-              otherwise nLen = 1
+        parse var g.0STMT.n sLabel sOp sOperand .
+        if sOp = 'DC'
+        then do
+          sType = left(sOperand,1)
+          if sType = 'A'
+          then parse var sOperand 'A'nLen'('sValue')'        /* A() syntax */
+          else parse var sOperand (sType) nLen"'"sValue"'"   /* X'' syntax */
+          if left(nLen,1) = 'L'
+          then nLen = substr(nLen,2)
+          else do
+            if nLen = ''
+            then do
+              select
+                when sType = 'A' then nLen = 4
+                when sType = 'F' then nLen = 4
+                when sType = 'H' then nLen = 2
+                when sType = 'S' then nLen = 2
+                otherwise nLen = 1
+              end
             end
           end
-        end
-        if g.0CLENG.xLoc \= nLen
-        then do
-          /* Use the label from the existing statement */
-          call emit left(sLabel,8) 'DC    0XL'g.0CLENG.xLoc
-          g.0STMT.n = overlay(left('',8),g.0STMT.n)
+          if g.0CLENG.xLoc \= nLen
+          then do
+            /* Use the label from the existing statement */
+            call emit left(sLabel,8) 'DC    0XL'g.0CLENG.xLoc
+            g.0STMT.n = overlay(left('',8),g.0STMT.n)
+          end
         end
       end
+      when left(sOp,2) = 'EX'  /* An execute instruction (EX or EXRL) */
+      then do                  /* Show the execute target in the comment */
+        parse var sOperand sReg','sLabel
+        xLocInst = getLocation(sLabel)
+        nStmt = g.0STMT#.xLocInst
+        if left(g.0STMT.nStmt,1) = ''
+        then parse var g.0STMT.nStmt   sExOp sExOperand .
+        else parse var g.0STMT.nStmt . sExOp sExOperand .
+        g.0STMT.n = overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
+      end
+      otherwise nop
     end
     call emit g.0STMT.n
   end
@@ -3959,7 +3978,7 @@ LRL     C4D  RILb  R8 Load Relative Long (32) =4
 LLGFRL  C4E  RILb  R8 Load Logical Relative Long (64<-32) =4
 STRL    C4F  RILb  R8 Store Relative Long (32) =4
 BPRP    C5   MII    . Branch Prediction Relative Preload
-EXRL    C60  RILb  R8 Execute Relative Long
+EXRL    C60  RILb  R8 Execute
 PFDRL   C62  RILc   . Prefetch Data Relative Long
 CGHRL   C64  RILb   C Compare Halfword Relative Long (64<-16) =2
 CHRL    C65  RILb   C Compare Halfword Relative Long (32<-16) =2
