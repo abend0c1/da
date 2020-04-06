@@ -1353,17 +1353,6 @@ saveUndefinedLabels:
                   left(sInst,6) sOperands
       end
     end
-    call saveCommentBlock 'Insert the following tags in the AMBLIST output',
-                          'and run DA again'
-    do i = 1 to sorted.0
-      n = sorted.i
-      nLoc = g.0REFLOC.n
-      if g.0DEF.nLoc = ''
-      then do
-        xLoc = d2x(nLoc)
-        call save ' 000000   (.='xLoc')'
-      end
-    end
   end
 return nLabels
 
