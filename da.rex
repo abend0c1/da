@@ -395,6 +395,18 @@ BEGIN-JCL-COMMENTS
 **              Some labels will be automatically created from the   **
 **              External Symbol Dictionary of the AMBLIST output.    **
 **                                                                   **
+**   (.=xxx)    Assigns an automatically named assembler label to    **
+**              location xxx in hexadecimal. Use this if you know in **
+**              advance which locations are referenced by machine    **
+**              instructions so that the location can be represented **
+**              by a label instead of a displacement off a register. **
+**              DA will automatically insert one of these tags into  **
+**              the hex input (AMBLIST output) for each location     **
+**              referenced by a machine instruction that does not    **
+**              already have a label defined for it. The inserted    **
+**              tags will be taken into account the next time DA is  **
+**              run.                                                 **
+**                                                                   **
 ** 6. Issue DA to disassemble the AMBLIST output being edited.       **
 **    - Spaces in the hex input are not significant (with one        **
 **      exception explained below).                                  **
@@ -442,6 +454,16 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200401 AA  Added '(.=xxx)' tag so that data labels   **
+**                         can be applied in advance. Inserted one   **
+**                         of these tags for each undefined label    **
+**                         into the original AMBLIST output just     **
+**                         before the first CSECT. DA will take      **
+**                         these into account the next time it is    **
+**                         run. This is equivalent to you manually   **
+**                         inserting '.' action characters to create **
+**                         labels that are referenced by machine     **
+**                         instructions.                             **
 **            20200316 AA  Fixed length hints for SS-a/b formats.    **
 **            20200305 AA  Fixed handling of (label) tag that begins **
 **                         with the letter R. For example (Return).  **
@@ -680,7 +702,25 @@ trace o
 
   'USER_STATE = (state)'      /* Restore editor state                */
   call epilog
+  /* Insert tags for any undefined labels before the first CSECT */
+  if nUndefinedLabels
+  then do
+    do i = sorted.0 to 1 by -1 /* Reverse order so they appear in order! */
+      n = sorted.i
+      nLoc = g.0REFLOC.n
+      if g.0DEF.nLoc = ''
+      then do
+        xLoc = d2x(nLoc)
+        'LINE_AFTER' g.0FIRSTCSECT '= " 000000   (.='xLoc')"'
+      end
+    end
+    say 'DIS0013I Inserted' nUndefinedLabels 'tags after line' g.0FIRSTCSECT
+  end
 return 1
+
+xLoc8: procedure
+  arg nLoc
+return right(d2c(nLoc),8,0)
 
 readMeta: procedure expose g.
   /* Determine whether we are scanning AMBLIST output  */
@@ -782,6 +822,7 @@ readProgramObject: procedure expose g.
   xData = ''
   nTop = seek('CONTROL SECTION:','FIRST NX')
   nRow = nextCSECT()
+  g.0FIRSTCSECT = nRow
   do while nRow \= 0 /* for each TEXT block found */
     bSeekingLoc = 1
     do i = nRow+1 to nEnd-1
@@ -830,6 +871,7 @@ readModule: procedure expose g.
   /* Parse the output from AMBLIST */
   xData = ''
   nRow = seek('T E X T','FIRST NX')
+  g.0FIRSTCSECT = nRow
   nEnd = seek('******END OF LOAD MODULE LISTING')
   bSeekingLoc = 1
   if nRow \= 0
@@ -862,6 +904,7 @@ readRawHex: procedure expose g.
   xData = ''
   /* Parse raw hex with no location offsets */
   call setLoc 0
+  g.0FIRSTCSECT = 1
   '(sStatus) = XSTATUS 1'
   '(sLine) = LINE 1'
   do i = 2 while rc = 0
@@ -992,10 +1035,10 @@ return
 handleTag: procedure expose g.
   parse arg sTag1 +1 0 sTag
   sTag = translate(sTag,' ',g.0HARDBLANK) /* Soften hard blanks */
-  if sTag1 = 'R'
+  if sTag1 = 'R'                       /* If it is a register tag       */
   then do 
     parse var sTag 'R'nn'='sLabel
-    sRegisters = getRegisterList('R'nn)
+    sRegisters = getRegisterList('R'nn) /* Will be null if no registers */
     nRegisters = words(sRegisters)
   end
   select
@@ -1101,11 +1144,31 @@ handleTag: procedure expose g.
     end
     otherwise do                    /* (label[=offset]) */
       parse var sTag sLabel'='xLoc .
-      if isHex(xLoc)
-      then call defLabel sLabel,xLoc
-      else call defLabel sLabel,g.0XLOC
+      if sLabel = '.'               /* (.=offset) */
+      then do
+        if isHex(xLoc) & getLabel(xLoc) = ''
+        then call addDot xLoc
+        else say 'DIS0012W Tag ignored: ('sTag')'
+      else do                       /* (label[=offset]) */
+        if isHex(xLoc)
+        then call defLabel sLabel,xLoc
+        else call defLabel sLabel,g.0XLOC
+      end
     end
   end
+return
+
+addDot: procedure expose g.
+  parse arg xLoc .
+  nLoc = x2d(xLoc)
+  xLoc = d2x(nLoc)) /* normalise hex */
+  if g.0DOTS.xLoc = ''
+  then do
+    n = g.0DOT.0 + 1
+    g.0DOTS.xLoc = n
+    g.0DOT.n = n
+    g.0DOT.n = nLoc
+    g.0DOTSORT = 1 /* Indicate sort is needed */
 return
 
 using: procedure
@@ -1271,6 +1334,17 @@ saveUndefinedLabels:
                   left(sInst,6) sOperands
       end
     end
+    call saveCommentBlock 'Insert the following tags in the AMBLIST output',
+                          'and run DA again'
+    do i = 1 to sorted.0
+      n = sorted.i
+      nLoc = g.0REFLOC.n
+      if g.0DEF.nLoc = ''
+      then do
+        xLoc = d2x(nLoc)
+        call save ' 000000   (.='xLoc')'
+      end
+    end
   end
 return nLabels
 
@@ -1342,57 +1416,134 @@ return
 decodeData: procedure expose g.
   arg xData
   if length(xData) = 0 then return
-  sData = x2c(xData)
-  do until length(sData) = 0
-    select
-      when g.0TYPE = 'A' then do /* Address */
-        parse var sData sChunk +4 sData
-        call doAddress sChunk
-      end
-      when g.0TYPE = 'B' then do /* Bit */
-        parse var sData sChunk +1 sData
-        call doBit sChunk        /* Bit */
-      end
-      when g.0TYPE = 'C' then do /* Character */
-        call doText sData
-        sData = ''
-      end
-      when g.0TYPE = 'F' then do /* Fullword */
-        parse var sData sChunk +4 sData
-        call doFullword sChunk
-      end
-      when g.0TYPE = 'H' then do /* Halfword */
-        parse var sData sChunk +2 sData
-        call doHalfword sChunk
-      end
-      when g.0TYPE = 'P' then do /* Packed decimal */
-        xData = c2x(sData)
-        nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
-        if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
-        then do                               /* Then not packed decimal   */
-          call doBinary sData                 /* Treat it as binary data   */
+  g.0SLICE.0 = 1
+  g.0SLICE.1 = x2c(xData)
+  nSlices = getSlices(g.0LOC,g.0LOC+length(g.0SLICE.1)-1)
+  do i = 1 to g.0SLICE.0
+    sData = g.0SLICE.i
+    do until length(sData) = 0
+      select
+        when g.0TYPE = 'A' then do /* Address */
+          parse var sData sChunk +4 sData
+          call doAddress sChunk
+        end
+        when g.0TYPE = 'B' then do /* Bit */
+          parse var sData sChunk +1 sData
+          call doBit sChunk        /* Bit */
+        end
+        when g.0TYPE = 'C' then do /* Character */
+          call doText sData
           sData = ''
         end
-        else do                               /* Valid packed decimal      */
-          nChunk = nPos / 2
-          parse var sData sChunk +(nChunk) sData
-          call doPacked sChunk
+        when g.0TYPE = 'F' then do /* Fullword */
+          parse var sData sChunk +4 sData
+          call doFullword sChunk
         end
-      end
-      when g.0TYPE = 'S' then do /* S-type address constant */
-        call doSCON sData
-        sData = ''
-      end
-      when g.0TYPE = 'X' then do /* Hexadecimal */
-        parse var sData sChunk +24 sData
-        call doHex sChunk
-      end
-      otherwise do /* Unspecified data type, so just guess */
-        sData = doUnspecified(sData)
+        when g.0TYPE = 'H' then do /* Halfword */
+          parse var sData sChunk +2 sData
+          call doHalfword sChunk
+        end
+        when g.0TYPE = 'P' then do /* Packed decimal */
+          xData = c2x(sData)
+          nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
+          if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
+          then do                               /* Then not packed decimal   */
+            call doBinary sData                 /* Treat it as binary data   */
+            sData = ''
+          end
+          else do                               /* Valid packed decimal      */
+            nChunk = nPos / 2
+            parse var sData sChunk +(nChunk) sData
+            call doPacked sChunk
+          end
+        end
+        when g.0TYPE = 'S' then do /* S-type address constant */
+          call doSCON sData
+          sData = ''
+        end
+        when g.0TYPE = 'X' then do /* Hexadecimal */
+          parse var sData sChunk +24 sData
+          call doHex sChunk
+        end
+        otherwise do /* Unspecified data type, so just guess */
+          sData = doUnspecified(sData)
+        end
       end
     end
   end
 return
+
+getSlices: procedure expose g.
+  arg nLo,nHi
+  if g.0DOTSORT = 1
+  then do
+    call sortStem 'g.0DOT.'
+    do i = 1 to sorted.0
+      n = sorted.i
+      temp.i = g.0DOT.n
+    end
+    do i = 1 to g.0DOT.0
+      g.0DOT.i = temp.i
+    end
+    drop temp.
+    g.0DOTSORT = 0
+  end
+  sData = g.0SLICE.1
+  j = 0
+  nAbsLo = nLo
+  nAbsHi = nHi
+  nRelLo = 1
+  do i = 1 to g.0DOT.0 while g.0DOT.i <= nLo
+    /* Ingore dots before this window */
+  end
+  do i = 1 to g.0DOT.0 while g.0DOT.i <= nHi
+    /* Process any dots inside the window */
+    nAbsHi = g.0DOT.i
+    /* Example:  List of (.=xxx) tags:
+                    .
+                    .
+                 g.0DOT.6=2222
+                 g.0DOT.7=4300
+                 g.0DOT.8=4304
+                 g.0DOT.9=5555
+                    .
+                    .
+                         4300              4316
+                          nLo              nHi
+                            |              |
+                         4300   4304       |
+                        nAbsLo  nAbsHi     |
+                            |   |          |
+    INPUT:       g.0SLICE.1=xxxxyyyyyyyyyyyy    len=17
+                            |   |
+                        nRelLo  nRelHi
+                            1   5
+                            <--->  nLen = 4
+    OUTPUT:      g.0SLICE.0=2                   Number of slices
+                 g.0SLICE.1=xxxx                len=4
+                 g.0SLICE.2=yyyyyyyyyyyyy       len=13
+    */
+    nLen = nAbsHi - nAbsLo
+    if nLen > 0
+    then do
+      nRelLo = nAbsLo-nLo+1
+      j = j + 1
+      g.0SLICE.0 = j
+      g.0SLICE.j = substr(sData,nRelLo,nLen)
+      nAbsLo = nAbsHi
+    end
+  end
+  /* Process the last (or only) part of this window */
+  nLen = nHi - nAbsLo + 1
+  if nLen > 0
+  then do
+    nRelLo = nAbsLo-nLo+1
+    j = j + 1
+    g.0SLICE.0 = j
+    g.0SLICE.j = substr(sData,nRelLo,nLen)
+    nAbsLo = nAbsHi
+  end
+return g.0SLICE.0
 
 doSCON: procedure expose g.
   parse arg sData
@@ -2410,6 +2561,7 @@ prolog:
   g.0REFLOC.0 = 0     /* Number of referenced locations                  */
   call setLoc 0       /* Location counter from start of module (integer) */
   g.0ISCODE = 1       /* 1=Code 0=Data                                   */
+  g.0DOT.0 = 0        /* Number of dots to be inserted                   */
   do i = 1 until sourceline(i) = 'BEGIN-FORMAT-DEFINITIONS'
   end
   do i = i+1 while sourceline(i) <> 'END-FORMAT-DEFINITIONS'
