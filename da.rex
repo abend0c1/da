@@ -454,6 +454,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200407 AA  Sort by mnemonic in instruction stats.    **
 **            20200407 AA  Insert only *new* undefined labels in the **
 **                         original AMBLIST output.                  **
 **            20200407 AA  Show the target of an EX or EXRL as a     **
@@ -612,7 +613,7 @@ trace o
     do i = 1 to sorted.0
       n = sorted.i
       sFormat = g.0FN.n
-      sMnemonics = strip(g.0ML.sFormat)
+      sMnemonics = sortWords(g.0ML.sFormat)
       if length(sMnemonics) <= 50
       then call save '*   'left(g.0FN.n,6) right(g.0FC.n,9) sMnemonics
       else do
@@ -2471,7 +2472,7 @@ isNum: procedure expose g.
   parse arg nData
 return datatype(nData,'WHOLE')
 
-sortWords: procedure expose sorted.
+sortWords: procedure
   parse arg sWords,bAscending
   array.0 = words(sWords)
   do i = 1 to array.0
