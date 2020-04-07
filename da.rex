@@ -1217,6 +1217,7 @@ addDot: procedure expose g.
     g.0DOT.n = n
     g.0DOT.n = nLoc
     g.0DOTSORT = 1 /* Indicate sort is needed */
+  end
 return
 
 using: procedure
