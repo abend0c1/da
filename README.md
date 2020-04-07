@@ -487,3 +487,23 @@ immediately before the hex to which they apply:
     ```
     Some labels will be automatically created from the
     External Symbol Dictionary of the AMBLIST output.
+
+* ## (.=*xxx*)    
+    Assigns an automatically named assembler label to
+    location *xxx* in hexadecimal. 
+    
+    Use this if you know in
+    advance which locations are referenced by machine
+    instructions so that the location can be represented
+    by a label instead of a displacement off a register.
+    
+    DA will automatically insert one of these tags into
+    the hex input (AMBLIST output) for each location
+    referenced by a machine instruction that does not
+    already have a label defined for it. The inserted  
+    tags will be taken into account the next time DA is 
+    run. 
+    
+    This is equivalent to you manually
+    inserting '.' action characters to create
+    labels that are referenced by machine instructions.
