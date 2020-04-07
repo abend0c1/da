@@ -1196,6 +1196,7 @@ handleTag: procedure expose g.
         if isHex(xLoc) & getLabel(xLoc) = ''
         then call addDot xLoc
         else say 'DIS0012W Tag ignored: ('sTag')'
+      end
       else do                       /* (label[=offset]) */
         if isHex(xLoc)
         then call defLabel sLabel,xLoc
