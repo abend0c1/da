@@ -679,7 +679,7 @@ trace o
   if g.0TODO > 0
   then say 'DIS0010W There are' g.0TODO 'lines marked: TODO (not code)'
   if nUndefinedLabels > 0
-  then say 'DIS0011W There are' nLabels 'references to undefined labels',
+  then say 'DIS0011W There are' nUndefinedLabels 'references to undefined labels',
            '(see end of listing)'
 
   /* Post-process all the generated statements */
@@ -687,45 +687,41 @@ trace o
     if left(g.0STMT.n,1) = 'L' /* If it has an auto-generated code label */
     then call emit             /* Then insert a blank line before it */
     xLoc = g.0LOC.n
-    /* g.0CLENG.xLoc is the longest length actually used in an instruction
-       that references this location. If it is longer than the data length
-       assigned to this location then a 'DC 0XLnn' directive will be
-       inserted to cover the entire field referenced by the instruction.
-    */
     if left(g.0STMT.n) = ' '
     then parse var g.0STMT.n        sOp sOperand sDesc 100 .
     else parse var g.0STMT.n sLabel sOp sOperand sDesc 100 .
     select
       when sOp = 'DC' &,       /* A constant, and...                     */
            g.0CLENG.xLoc <> '' /* An instruction specified its length    */
+    /* g.0CLENG.xLoc is the longest length actually used in an instruction
+       that references this location. If it is longer than the data length
+       assigned to this location then a 'DC 0XLnn' directive will be
+       inserted to cover the entire field referenced by the instruction.
+    */
       then do
-        parse var g.0STMT.n sLabel sOp sOperand .
-        if sOp = 'DC'
-        then do
-          sType = left(sOperand,1)
-          if sType = 'A'
-          then parse var sOperand 'A'nLen'('sValue')'        /* A() syntax */
-          else parse var sOperand (sType) nLen"'"sValue"'"   /* X'' syntax */
-          if left(nLen,1) = 'L'
-          then nLen = substr(nLen,2)
-          else do
-            if nLen = ''
-            then do
-              select
-                when sType = 'A' then nLen = 4
-                when sType = 'F' then nLen = 4
-                when sType = 'H' then nLen = 2
-                when sType = 'S' then nLen = 2
-                otherwise nLen = 1
-              end
+        sType = left(sOperand,1)
+        if sType = 'A'
+        then parse var sOperand 'A'nLen'('sValue')'        /* A() syntax */
+        else parse var sOperand (sType) nLen"'"sValue"'"   /* X'' syntax */
+        if left(nLen,1) = 'L'
+        then nLen = substr(nLen,2)
+        else do
+          if nLen = ''
+          then do
+            select
+              when sType = 'A' then nLen = 4
+              when sType = 'F' then nLen = 4
+              when sType = 'H' then nLen = 2
+              when sType = 'S' then nLen = 2
+              otherwise nLen = 1
             end
           end
-          if g.0CLENG.xLoc \= nLen
-          then do
-            /* Use the label from the existing statement */
-            call emit left(sLabel,8) 'DC    0XL'g.0CLENG.xLoc
-            g.0STMT.n = overlay(left('',8),g.0STMT.n)
-          end
+        end
+        if g.0CLENG.xLoc \= nLen
+        then do
+          /* Use the label from the existing statement */
+          call emit left(sLabel,8) 'DC    0XL'g.0CLENG.xLoc
+          g.0STMT.n = overlay(left('',8),g.0STMT.n)
         end
       end
       when left(sOp,2) = 'EX'  /* An execute instruction (EX or EXRL) */
