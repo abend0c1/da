@@ -1991,6 +1991,10 @@ decodeInst: procedure expose g.
   if pos(sFlag,'ACcM') > 0
   then g.0CC = sFlag /* Instruction type that sets condition code       */
   select
+    when sMnemonic = 'L' & X2=0 & B2=0 & D2 = '010' then do
+      sDesc = sDesc '-> CVT'
+      call saveStmt sMnemonic,sOperands,sDesc,sOverlay
+    end
     when sMnemonic = 'SVC' then do
       if g.0SVC.I1 \= ''
       then sDesc = g.0SVC.I1
