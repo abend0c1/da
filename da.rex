@@ -454,6 +454,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200407 AA  Insert only *new* undefined labels in the **
+**                         original AMBLIST output.                  **
 **            20200407 AA  Show the target of an EX or EXRL as a     **
 **                         comment.                                  **
 **            20200401 AA  Added '(.=xxx)' tag so that data labels   **
@@ -724,16 +726,20 @@ trace o
   /* Insert tags for any undefined labels before the first CSECT */
   if nUndefinedLabels
   then do
+    nNewDots = 0
     do i = sorted.0 to 1 by -1 /* Reverse order so they appear in order! */
       n = sorted.i
       nLoc = g.0REFLOC.n
-      if g.0DEF.nLoc = ''
+      xLoc = d2x(nLoc)
+      if g.0DEF.nLoc = '' & g.0DOTS.xLoc = '' /* If it is a new undefined label */
       then do
+        nNewDots = nNewDots + 1
         xLoc = d2x(nLoc)
-        'LINE_AFTER' g.0FIRSTCSECT '= " 000000   (.='xLoc')"'
+        'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc')"'
       end
     end
-    say 'DIS0013I Inserted' nUndefinedLabels 'tags after line' g.0FIRSTCSECT
+    if nNewDots > 0
+    then say 'DIS0013I Inserted' nNewDots 'tags after line' g.0FIRSTCSECT
   end
 return 1
 
@@ -842,6 +848,7 @@ readProgramObject: procedure expose g.
   nTop = seek('CONTROL SECTION:','FIRST NX')
   nRow = nextCSECT()
   g.0FIRSTCSECT = nRow
+  g.0TAGPREFIX = '00000000 '
   do while nRow \= 0 /* for each TEXT block found */
     bSeekingLoc = 1
     do i = nRow+1 to nEnd-1
@@ -891,6 +898,7 @@ readModule: procedure expose g.
   xData = ''
   nRow = seek('T E X T','FIRST NX')
   g.0FIRSTCSECT = nRow
+  g.0TAGPREFIX = '000000   '
   nEnd = seek('******END OF LOAD MODULE LISTING')
   bSeekingLoc = 1
   if nRow \= 0
@@ -924,6 +932,7 @@ readRawHex: procedure expose g.
   /* Parse raw hex with no location offsets */
   call setLoc 0
   g.0FIRSTCSECT = 1
+  g.0TAGPREFIX = ''
   '(sStatus) = XSTATUS 1'
   '(sLine) = LINE 1'
   do i = 2 while rc = 0
