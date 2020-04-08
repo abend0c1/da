@@ -950,7 +950,7 @@ readRawHex: procedure expose g.
   xData = ''
   /* Parse raw hex with no location offsets */
   call setLoc 0
-  g.0FIRSTCSECT = 1
+  g.0FIRSTCSECT = 0
   g.0TAGPREFIX = ''
   '(sStatus) = XSTATUS 1'
   '(sLine) = LINE 1'
