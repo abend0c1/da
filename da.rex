@@ -1214,7 +1214,6 @@ addDot: procedure expose g.
   then do
     n = g.0DOT.0 + 1
     g.0DOTS.xLoc = n
-    g.0DOT.n = n
     g.0DOT.n = nLoc
     g.0DOTSORT = 1 /* Indicate sort is needed */
   end
