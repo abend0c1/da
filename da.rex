@@ -478,7 +478,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
-**            20200407 AA  Added ASM option to create assembly JCL.  **
+**            20200420 AA  TR/TRT now has fixed table lnegth of 256. **
+**            20200417 AA  Added ASM option to create assembly JCL.  **
 **            20200407 AA  Sort by mnemonic in instruction stats.    **
 **            20200407 AA  Insert only *new* undefined labels in the **
 **                         original AMBLIST output.                  **
@@ -2014,7 +2015,7 @@ decodeInst: procedure expose g.
   sOperands = space(o,,',')           /* Put commas between operands    */
   sOperands = translate(sOperands,' ',g.0HARDBLANK) /* Soften blanks :) */
   xCode     = left(xInst,nLen)
-  sOverlay  = g.0XLOC8 left(xCode,12) sFormat g.0TLENG
+  sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(g.0TLENG,3)
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
   if pos(sFlag,'ACcM') > 0
@@ -3198,9 +3199,9 @@ RSA    . r(R1) r(R3) db(D2,B2)          hint(g.0TLENG,B2,D2)
 RSI    8 O1 +2 R1 +1    R3 +1 RI2 +4
 RSI    . r(R1) r(R3) s4(RI2)
 RSLa  12 O1 +2 L1 +1     . +1  B1 +1  D1 +3   . +1  . +1 O2 +2
-RSLa   . dlb(D1,L1,B1)
+RSLa   . dlb(D1,L1,B1)                  hint(L1,B1,D1)
 RSLb  12 O1 +2 L2 +2           B2 +1  D2 +3  R1 +1 M3 +1 O2 +2
-RSLb   . r(R1) dlb(D2,L2,B2) m(M3)
+RSLb   . r(R1) dlb(D2,L2,B2) m(M3)      hint(L2,B2,D2)
 RSYa  12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RSYa   . r(R1) r(R3) ldb(DH2||DL2,B2)   hint(g.0TLENG,B2,DH2||DL2)
 RSYas 12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
@@ -3245,10 +3246,12 @@ SMI   12 O1 +2 M1 +1     . +1  B3 +1  D3 +3 RI2 +4
 SMI    . m(M1) s4(RI2) db(D3,B1)
 SSa   12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
 SSa    . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B1,D1) hint(l(L1),B2,D2)
+SSa1  12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
+SSa1   . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B1,D1) hint(256,B2,D2)
 SSb   12 O1 +2 L1 +1    L2 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    hint(l(L1),B1,D1) hint(l(L1),B2,D2)
 SSc   12 O1 +2 L1 +1    I3 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)
+SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)  hint(L1,B1,D1)
 SSd   12 O1 +2 R1 +1    R3 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSd    . db(D1,B1) db(D2,B2) r(R3)
 SSe   12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
@@ -3256,7 +3259,7 @@ SSe    . r(R1) r(R3) db(D2,B2) db(D4,B4) hint(hM(4),B2,D2) hint(hM(4),B4,D4)
 SSe1  12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
 SSe1   . r(R1) r(R3) db(D2,B2) db(D4,B4)
 SSf   12 O1 +2 L2 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSf    . db(D1,B1) dlb(D2,L2,B2)        hint(16,B1,D1)
+SSf    . db(D1,B1) dlb(D2,L2,B2)        hint(16,B1,D1)     hint(L2,B2,D2)
 SSE   12 O1 +4                 B1 +1  D1 +3  B2 +1  D2 +3
 SSE    . db(D1,B1) db(D2,B2)            hint(g.0TLENG,B2,D2)
 SSF   12 O1 +2 R3 +1    O2 +1  B1 +1  D1 +3  B2 +1  D2 +3
@@ -4055,22 +4058,22 @@ ALSIHN  CCB  RILa   A Add Logical with Signed Immediate High (32)
 CIH     CCD  RILa   C Compare Immediate High (32)
 CLIH    CCF  RILa   C Compare Logical Immediate High (32)
 TRTR    D0   RILa   c Translate and Test Reverse
-MVN     D1   SSa    . Move Numerics
-MVC     D2   SSa    . Move Character
-MVZ     D3   SSa    . Move Zones
-NC      D4   SSa    A And Character
-CLC     D5   SSa    C Compare Logical Character
-OC      D6   SSa    A Or Character
-XC      D7   SSa    A Exclusive-Or Character
+MVN     D1   SSa    . Move Numerics =l(L1)
+MVC     D2   SSa    . Move Character =l(L1)
+MVZ     D3   SSa    . Move Zones =l(L1)
+NC      D4   SSa    A And Character =l(L1)
+CLC     D5   SSa    C Compare Logical Character =l(L1)
+OC      D6   SSa    A Or Character =l(L1)
+XC      D7   SSa    A Exclusive-Or Character =l(L1)
 MVCK    D9   SSd    c Move with Key
 MVCP    DA   SSd    c Move to Primary
 MVCS    DB   SSd    c Move to Secondary
-TR      DC   SSa    . Translate
-TRT     DD   SSa    c Translate and Test
-ED      DE   SSa    A Edit
-EDMK    DF   SSa    A Edit and MarK
-PKU     E1   SSf    . Pack Unicode
-UNPKU   E2   SSa    c Unpack Unicode
+TR      DC   SSa    . Translate =l(L1)
+TRT     DD   SSa    c Translate and Test =l(L1)
+ED      DE   SSa    A Edit =l(L1)
+EDMK    DF   SSa    A Edit and MarK =l(L1)
+PKU     E1   SSf    . Pack Unicode =16
+UNPKU   E2   SSa    c Unpack Unicode =l(L1)
 LTG     E302 RXYa   A Load and Test (64) =8
 LRAG    E303 RXYa   c Load Real Address (64)
 LG      E304 RXYa   . Load (64) =8
@@ -4370,9 +4373,9 @@ VMNL    E7FC VRRc4  . Vector Minimum Logical
 VMXL    E7FD VRRc4  . Vector Maximum Logical
 VMN     E7FE VRRc4  . Vector Minimum
 VMX     E7FF VRRc4  . Vector Maximum
-MVCIN   E8   SSa    . Move Inverse
-PKA     E9   SSf    . Pack ASCII
-UNPKA   EA   SSa    c UnPacK ASCII
+MVCIN   E8   SSa    . Move Inverse =l(L1)
+PKA     E9   SSf    . Pack ASCII =16
+UNPKA   EA   SSa    c UnPacK ASCII =l(L1)
 LMG     EB04 RSYa   . Load Multiple (64)  =hM(8)
 SRAG    EB0A RSYas  A Shift Right Single (64)
 SLAG    EB0B RSYas  A Shift Left Single (64)
@@ -4417,7 +4420,7 @@ LMH     EB96 RSYa   . Load Multiple High (32)
 LMY     EB98 RSYa   . Load Multiple (32)
 LAMY    EB9A RSYa   . Load Access Multiple
 STAMY   EB9B RSYa   . Store Access Multiple
-TP      EBC0 RSLa   c Test Decimal
+TP      EBC0 RSLa   c Test Decimal =l(L1)
 SRAK    EBDC RSYas  A Shift Right Single (32)
 SLAK    EBDD RSYas  A Shift Left Single (32)
 SRLK    EBDE RSYas  . Shift Right Single Logical (32)
@@ -4540,16 +4543,16 @@ CDPT    EDAE RSLb   . Convert from Packed (to LD) =l(L2)
 CXPT    EDAF RSLb   . Convert from Packed (to ED) =l(L2)
 PLO     EE   SSe1   c Perform Locked Operation
 LMD     EF   SSe    . Load Multiple Disjoint (64<-32+32)
-SRP     F0   SSc    A Shift and Round Decimal
-MVO     F1   SSb    . Move with Offset
-PACK    F2   SSb    . Pack
-UNPK    F3   SSb    c Unpack
-ZAP     F8   SSb    A Zero and Add
-CP      F9   SSb    C Compare Decimal
-AP      FA   SSb    A Add Decimal
-SP      FB   SSb    A Subtract Decimal
-MP      FC   SSb    A Multiply Decimal
-DP      FD   SSb    A Divide Decimal
+SRP     F0   SSc    A Shift and Round Decimal =l(L1)
+MVO     F1   SSb    . Move with Offset =l(L1)
+PACK    F2   SSb    . Pack =l(L1)
+UNPK    F3   SSb    c Unpack =l(L1)
+ZAP     F8   SSb    A Zero and Add =l(L1)
+CP      F9   SSb    C Compare Decimal =l(L1)
+AP      FA   SSb    A Add Decimal =l(L1)
+SP      FB   SSb    A Subtract Decimal =l(L1)
+MP      FC   SSb    A Multiply Decimal =l(L1)
+DP      FD   SSb    A Divide Decimal =l(L1)
 END-INSTRUCTION-DEFINITIONS
 
 
