@@ -478,7 +478,9 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
-**            20200420 AA  TR/TRT now has fixed table lnegth of 256. **
+**            20200420 AA  Insert a blank line before each label     **
+**                         more reliably.                            **
+**            20200420 AA  TR/TRT now has fixed table length of 256. **
 **            20200417 AA  Added ASM option to create assembly JCL.  **
 **            20200407 AA  Sort by mnemonic in instruction stats.    **
 **            20200407 AA  Insert only *new* undefined labels in the **
@@ -695,20 +697,20 @@ trace o
 
   /* Post-process all the generated statements */
   do n = 1 to g.0LINE
-    if left(g.0STMT.n,1) = 'L' /* If it has an auto-generated code label */
+    xLoc = g.0LOC.n            /* Get the hex location of this statement */
+    if getLabel(xLoc) <> ''    /* If it has an auto-generated code label */
     then call emit             /* Then insert a blank line before it */
-    xLoc = g.0LOC.n
+    /* g.0CLENG.xLoc is the longest length actually used in an instruction
+       that references this location. If it is longer than the data length
+       assigned to this location then a 'DC 0XLnn' directive will be
+       inserted to cover the entire field referenced by the instruction.
+    */
     if left(g.0STMT.n) = ' '
     then parse var g.0STMT.n        sOp sOperand sDesc 100 .
     else parse var g.0STMT.n sLabel sOp sOperand sDesc 100 .
     select
       when sOp = 'DC' &,       /* A constant, and...                     */
            g.0CLENG.xLoc <> '' /* An instruction specified its length    */
-    /* g.0CLENG.xLoc is the longest length actually used in an instruction
-       that references this location. If it is longer than the data length
-       assigned to this location then a 'DC 0XLnn' directive will be
-       inserted to cover the entire field referenced by the instruction.
-    */
       then do
         sType = left(sOperand,1)
         if sType = 'A'
