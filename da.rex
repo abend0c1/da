@@ -164,6 +164,8 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **                      assembler. When assembled into a module, the **
 **                      result can be used to test the disassembler. **
 **                                                                   **
+**            ASM     - Generate an assembly job that you can submit **
+**                      to verify the disassembled source is valid.  **
 **                                                                   **
 ** NOTES    - 1. As new instructions are added to the z/Series inst- **
 **               ruction set, it will be necessary to define them in **
@@ -476,6 +478,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200407 AA  Added ASM option to create assembly JCL.  **
 **            20200407 AA  Sort by mnemonic in instruction stats.    **
 **            20200407 AA  Insert only *new* undefined labels in the **
 **                         original AMBLIST output.                  **
@@ -538,6 +541,13 @@ trace o
   if g.0OPTION.TEST = 1       /* Generate test assembler source?     */
   then do
     call generateTestBed
+    call epilog
+    exit 0
+  end
+ 
+  if g.0OPTION.ASM = 1        /* Generate assembly JCL?              */
+  then do
+    call generateAsm
     call epilog
     exit 0
   end
@@ -1013,6 +1023,25 @@ generateTestBed: procedure expose g.
     call emit left('V'i,8) 'EQU   'i
   end
   call emit '         END'
+  call epilog
+return
+
+generateAsm: procedure expose g.
+  '(dataset) = DATASET' /* Dataset currently being edited */
+  '(lines) = LINENUM .ZLAST' /* Number of lines being edited */
+  sJob = left(userid()'A',8)
+  queue '//'sJob   "JOB ,'ASM',CLASS=U,MSGCLASS=T,NOTIFY=&SYSUID"
+  queue '//ASM     EXEC PGM=ASMA90,'
+  queue '//             PARM=(NOOBJECT,NODECK,LINECOUNT(0))'
+  queue '//SYSLIB    DD DISP=SHR,DSN=SYS1.MACLIB'
+  queue '//          DD DISP=SHR,DSN=SYS1.MODGEN'
+  queue '//SYSPRINT  DD SYSOUT=*,RECFM=V'
+  queue '//SYSIN     DD *'
+  do i = 1 to lines
+    '(sLine) = LINE' i
+    queue left(sLine,72)
+  end
+  queue '/*'
   call epilog
 return
 
