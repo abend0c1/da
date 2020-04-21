@@ -26,7 +26,16 @@ This can be very handy for mainframe sites that have somehow lost the source cod
     load module, printed with AMBLIST and used to check
     that DA can disassemble all instructions correctly.
 
-*   If DA is invoked as an edit macro, for example:
+*   If DA is invoked in an ISPF edit session with the ASM
+    option, for example:
+    
+    `DA (ASM`
+    
+    ...then JCL to assemble the file being edited is 
+    generated.
+
+*   If DA is invoked in an ISPF edit session with no
+    options, for example:
 
     `DA`
  
@@ -178,10 +187,12 @@ Disassembly is usually an iterative process:
 
    * `options` are:
 
-     `STAT`    - Generate instruction format and mnemonic usage statistics.
+     `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the end of the generated source file.
 
      `TEST`    - Generate a source file containing one instance of every instruction to exercise the assembler. When assembled into a module, the
      result can be used to test the disassembler.
+
+     `ASM`     - Generate JCL to assemble the file being edited.
 
 ## NOTES
 
@@ -276,7 +287,7 @@ To disassemble a load module:
    AMBLIST output - where you can adjust the tags as described
    above and try again.
 
-1. Submit an assembly job to verify that the disassembled code
+1. Issue `DA (ASM` to generate JCL to assemble the file being edited. Submit this job to verify that the disassembled code
    assembles cleanly.
 
 ## TAGS
