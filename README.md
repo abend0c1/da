@@ -344,6 +344,71 @@ immediately before the hex to which they apply:
     | `S` | S-type    |2| `S(X'020'(R12))` |
     | `X` | Hex       |n| `XL2'0304'` |
 
+* ## (%*formatspec*)
+    Parses the subsequent hex as formatted rows of table data. The end of the table data is indicated
+    by either a `/` action marker, or an empty tag list `()`, or an empty *formatspec* tag: `(%)`.
+    Each row of table data is parsed according to the *formatspec*.
+    The *formatspec* consists of zero or more space delimited assembler storage
+    type declarations each having the format: `[duplication_factor][type][length_modifier]`
+    ...for example, `4XL3`.
+    The default *duplication_factor* (the repetition count for the field) is 1.
+    The default *type* is X (hexadecimal).
+    The default *length_modifier* depends on the *type* as follows:
+    | x   | Type      | Length |
+    | --- | ---       | --- |
+    | `A` | Address   |4|
+    | `B` | Binary    |1|
+    | `C` | Character |1|
+    | `F` | Fullword  |4|
+    | `H` | Halfword  |2|
+    | `P` | Packed    |1|
+    | `S` | S-type    |2|
+    | `X` | Hex       |1|
+
+    If you specify an unsupported data type then the default format of `X` is used. As
+    a happy side effect, specifying `4x3` (which you could read as "four by three bytes")
+    is equivalent to `4XL3` or `XL3 XL3 XL3 XL3` or even just `3 3 3 3`. If you specify
+    just a number then that number is treated as a length of a type `X` field.
+
+    For example<sup>1</sup>,
+
+    ```
+    (%CL3 X PL4).
+    C1C3E3 02 0426709C  D5E2E6 01 8089526C  D5E340 02 0245869C
+    D8D3C4 01 5095100C  E2C140 01 1751693C  E3C1E2 01 0534281C
+    E5C9C3 01 6594804C  E6C140 01 2621680C
+    ```
+
+    ...(spaces inserted for clarity) will be disassembled as:
+
+    ```
+    L0       DC    CL3'ACT'
+             DC    XL1'02'
+             DC    PL4'426709'
+             DC    CL3'NSW'
+             DC    XL1'01'
+             DC    PL4'8089526'
+             DC    CL3'NT'
+             DC    XL1'02'
+             DC    PL4'245869'
+             DC    CL3'QLD'
+             DC    XL1'01'
+             DC    PL4'5095100'
+             DC    CL3'SA'
+             DC    XL1'01'
+             DC    PL4'1751693'
+             DC    CL3'TAS'
+             DC    XL1'01'
+             DC    PL4'534281'
+             DC    CL3'VIC'
+             DC    XL1'01'
+             DC    PL4'6594804'
+             DC    CL3'WA'
+             DC    XL1'01'
+             DC    PL4'2621680'
+    ```
+    <sup>1</sup><sub>Australian state and territory population data (June 2019)</sub>
+
 * ## ()
     Resets the data type tag so that automatic data type
     detection is enabled. 

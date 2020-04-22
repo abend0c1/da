@@ -478,6 +478,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200421 AA  Added '%' tag for printing formatted      **
+**                         table entries.                            **
 **            20200420 AA  Insert a blank line before each label     **
 **                         more reliably.                            **
 **            20200420 AA  TR/TRT now has fixed table length of 256. **
@@ -605,6 +607,7 @@ trace o
         when sAction = '/' then do
           g.0ISCODE = 0            /* Decode subsequent hex as data    */
           g.0TYPE = ''             /* Reset data type to automatic     */
+          g.0FIELD.0 = 0           /* Reset table entry generation     */
         end
         otherwise nop              /* Use existing mode and data type  */
       end
@@ -1134,6 +1137,46 @@ handleTag: procedure expose g.
       sTag = strip(sTag,'BOTH',"'")
       call attachComment g.0XLOC,sTag
     end
+    when sTag1 = '%' then do           /* %AL4 2F 3H CL14 (for example) */
+      parse var sTag '%'sTableEntry
+      g.0FIELD.0 = 0
+      do i = 1 to words(sTableEntry)
+        w = word(sTableEntry,i)
+        w = translate(w)               /* Convert to upper case */
+/*
+        w       Meaning
+        ------- ------------------------------------
+                Reset table entry template
+        A       Data type A with implicit length of 4
+        AL3     Data type A with explicit length of 3
+        2A      2 x data type A with implicit length of 4
+        2AL1    2 x data type A with explicit length of 1
+        2       Data type X (default) of length 2     (type not specified)
+        2x3     2 x data type X (default) of length 3 (when x is invalid type)
+*/        
+        nRep = ''
+        sTyp = ''
+        nLen = ''
+        do j = 1 to length(w)
+          c = substr(w,j,1)
+          if pos(c,'01234567890') = 0 then leave
+          nRep = nRep || c
+        end
+        do j = j to length(w)
+          c = substr(w,j,1)
+          if pos(c,'01234567890') > 0 then leave
+          sTyp = sTyp || c
+        end
+        nLen = substr(w,j)
+        sTyp = left(sTyp,1)
+        if nRep = '' then nRep = 1
+        if sTyp = '' then sTyp = 'X'
+        if nLen = '' then nLen = g.0LEN.sTyp
+        n = g.0FIELD.0 + 1
+        g.0FIELD.0 = n
+        g.0FIELD.n = nRep sTyp nLen
+      end
+    end
     when sTag1 = '@' then do           /* @addr */
       parse var sTag '@'xLoc
       if isHex(xLoc)
@@ -1492,56 +1535,76 @@ decodeData: procedure expose g.
   do i = 1 to g.0SLICE.0
     sData = g.0SLICE.i
     do until length(sData) = 0
-      select
-        when g.0TYPE = 'A' then do /* Address */
-          parse var sData sChunk +4 sData
-          call doAddress sChunk
-        end
-        when g.0TYPE = 'B' then do /* Bit */
-          parse var sData sChunk +1 sData
-          call doBit sChunk        /* Bit */
-        end
-        when g.0TYPE = 'C' then do /* Character */
-          call doText sData
-          sData = ''
-        end
-        when g.0TYPE = 'F' then do /* Fullword */
-          parse var sData sChunk +4 sData
-          call doFullword sChunk
-        end
-        when g.0TYPE = 'H' then do /* Halfword */
-          parse var sData sChunk +2 sData
-          call doHalfword sChunk
-        end
-        when g.0TYPE = 'P' then do /* Packed decimal */
-          xData = c2x(sData)
-          nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
-          if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
-          then do                               /* Then not packed decimal   */
-            call doBinary sData                 /* Treat it as binary data   */
-            sData = ''
-          end
-          else do                               /* Valid packed decimal      */
-            nChunk = nPos / 2
-            parse var sData sChunk +(nChunk) sData
-            call doPacked sChunk
+      if g.0FIELD.0 > 0        /* If parsing fields in a table row       */
+      then do                  /* Emit each field in this table row      */
+        sSaveType = g.0TYPE
+        /* For each field in this table row... */
+        do j = 1 to g.0FIELD.0 while length(sData) <> 0
+          parse var g.0FIELD.j nRep sTyp nLen
+          g.0TYPE = sTyp                  /* Set the field type */
+          /* For each repetition of this data type... */
+          do k = 1 to nRep while length(sData) <> 0
+            parse var sData sField +(nLen) sData /* Get field */
+            s = decodeDataField(sField) /* Decode the field as g.0TYPE */
           end
         end
-        when g.0TYPE = 'S' then do /* S-type address constant */
-          call doSCON sData
-          sData = ''
-        end
-        when g.0TYPE = 'X' then do /* Hexadecimal */
-          parse var sData sChunk +24 sData
-          call doHex sChunk
-        end
-        otherwise do /* Unspecified data type, so just guess */
-          sData = doUnspecified(sData)
-        end
+        g.0TYPE = sSaveType
       end
+      else sData = decodeDataField(sData) /* Decode the data as g.0TYPE */
     end
   end
 return
+
+decodeDataField: procedure expose g.
+  parse arg sData
+  select
+    when g.0TYPE = 'A' then do /* Address */
+      parse var sData sChunk +4 sData
+      call doAddress sChunk
+    end
+    when g.0TYPE = 'B' then do /* Bit */
+      parse var sData sChunk +1 sData
+      call doBit sChunk        /* Bit */
+    end
+    when g.0TYPE = 'C' then do /* Character */
+      call doText sData
+      sData = ''
+    end
+    when g.0TYPE = 'F' then do /* Fullword */
+      parse var sData sChunk +4 sData
+      call doFullword sChunk
+    end
+    when g.0TYPE = 'H' then do /* Halfword */
+      parse var sData sChunk +2 sData
+      call doHalfword sChunk
+    end
+    when g.0TYPE = 'P' then do /* Packed decimal */
+      xData = c2x(sData)
+      nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
+      if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
+      then do                               /* Then not packed decimal   */
+        call doBinary sData                 /* Treat it as binary data   */
+        sData = ''
+      end
+      else do                               /* Valid packed decimal      */
+        nChunk = nPos / 2
+        parse var sData sChunk +(nChunk) sData
+        call doPacked sChunk
+      end
+    end
+    when g.0TYPE = 'S' then do /* S-type address constant */
+      call doSCON sData
+      sData = ''
+    end
+    when g.0TYPE = 'X' then do /* Hexadecimal */
+      parse var sData sChunk +24 sData
+      call doHex sChunk
+    end
+    otherwise do /* Unspecified data type, so just guess */
+      sData = doUnspecified(sData)
+    end
+  end
+return sData
 
 getSlices: procedure expose g.
   arg nLo,nHi
@@ -2636,6 +2699,7 @@ prolog:
   call setLoc 0       /* Location counter from start of module (integer) */
   g.0ISCODE = 1       /* 1=Code 0=Data                                   */
   g.0DOT.0 = 0        /* Number of dots to be inserted                   */
+  g.0FIELD.0 = 0      /* Number of fields when parsing a table entry     */
   do i = 1 until sourceline(i) = 'BEGIN-FORMAT-DEFINITIONS'
   end
   do i = i+1 while sourceline(i) <> 'END-FORMAT-DEFINITIONS'
@@ -2671,6 +2735,15 @@ prolog:
     parse var sLine xSVC sZOSSVC
     call addSVC xSVC,sZOSSVC
   end
+  /* Default length of assembler data types */
+  g.0LEN.A = 4
+  g.0LEN.B = 1
+  g.0LEN.C = 1
+  g.0LEN.F = 4
+  g.0LEN.H = 2
+  g.0LEN.P = 1
+  g.0LEN.S = 2
+  g.0LEN.X = 1
   /* Number of 1 bits in a 4-bit mask */
   g.0MASK.0 = 0
   g.0MASK.1 = 1
