@@ -529,6 +529,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200424 AA  Improved '%' tag parsing                  **
 **            20200421 AA  Added '%' tag for printing formatted      **
 **                         table entries.                            **
 **            20200420 AA  Insert a blank line before each label     **
@@ -1219,9 +1220,14 @@ handleTag: procedure expose g.
           sTyp = sTyp || c
         end
         nLen = substr(w,j)
+        if sTyp = '' & nLen = ''
+        then do /* 3 --> XL3, not 3XL1 */
+          nLen = nRep
+          nRep = 1
+        end
         sTyp = left(sTyp,1)
+        if pos(sTyp,' ABCFHPSX') = 0 then sTyp = 'X'
         if nRep = '' then nRep = 1
-        if sTyp = '' then sTyp = 'X'
         if nLen = '' then nLen = g.0LEN.sTyp
         n = g.0FIELD.0 + 1
         g.0FIELD.0 = n
