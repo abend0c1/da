@@ -529,6 +529,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200427 AA  Emit EQU for each undefined label.        **
 **            20200424 AA  Improved '%' tag parsing                  **
 **            20200421 AA  Added '%' tag for printing formatted      **
 **                         table entries.                            **
@@ -613,7 +614,6 @@ trace o
   call emit '*Label   Op    Operands                'left('Comment',59),
             'Location Hex          Format'
 
-  call setLoc 0               /* Initial location counter            */
   xMeta = readMeta()          /* Determine the input format          */
   if g.0AMBLIST
   then do
@@ -623,7 +623,7 @@ trace o
   end
   else   xData = readRawHex()
 
-  g.0ISCODE = 1       /* 1=Code 0=Data */
+  g.0ISCODE = 1       /* Set hex parsing mode (1=Code 0=Data) */
   do while xData <> '' /* Disassemble the extracted hex data */
     parse var xData xChunk '('sTags')' xData
     xChunk = space(xChunk,0)
@@ -952,7 +952,6 @@ readProgramObject: procedure expose g.
         then do
           if bSeekingLoc
           then do
-            call setLoc xLoc            /* Set the current location */
             bSeekingLoc = 0
             xData = xData'(@'xLoc')' /* Indicate where following hex starts */
           end
@@ -1004,7 +1003,6 @@ readModule: procedure expose g.
       then do
         if bSeekingLoc
         then do
-          call setLoc xLoc            /* Set the current location */
           bSeekingLoc = 0
           xData = xData'(@'xLoc')' /* Indicate where following hex starts */
         end
@@ -1017,7 +1015,6 @@ return xData
 readRawHex: procedure expose g.
   xData = ''
   /* Parse raw hex with no location offsets */
-  call setLoc 0
   g.0FIRSTCSECT = 0
   g.0TAGPREFIX = ''
   '(sStatus) = XSTATUS 1'
@@ -1499,20 +1496,31 @@ saveUndefinedLabels:
     call saveCommentBlock 'Undefined labels'
     call save '* Label    At       Length Ref from By instruction'
     call save '* -------- -------- ------ --------' copies('-',35)
+    g.0EQU.0 = 0
     do i = 1 to sorted.0
       n = sorted.i
       nLoc = g.0REFLOC.n
       if g.0DEF.nLoc = ''
       then do
         xLoc = d2x(nLoc)
-        sLabel = getLabel(xLoc)
+        sLabel = left(getLabel(xLoc),8)
         xLocRef = g.0REF.nLoc
         n = g.0STMT#.xLocRef
-        sStmt = g.0STMT.n
         parse var g.0STMT.n 10 sInst sOperands .
-        call save '*' left(sLabel,8) left(xLoc,8),
+        call save '*' sLabel left(xLoc,8),
                   right(g.0CLENG.xLoc,6) right(xLocRef,8),
                   left(sInst,6) sOperands
+        n = g.0EQU.0 + 1
+        g.0EQU.0 = n
+        g.0EQU.n = sLabel "EQU   @+X'"xLoc"'," ||,
+                   g.0CLENG.xLoc",C'X',X'DEADC0DE'"
+      end
+    end
+    if g.0EQU.0 > 0
+    then do
+      call saveCommentBlock 'Equates for undefined labels'
+      do i = 1 to g.0EQU.0
+        call save g.0EQU.i
       end
     end
   end
