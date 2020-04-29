@@ -529,6 +529,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200429 AA  Switch to data parsing mode on % tag.     **
 **            20200427 AA  Emit EQU for each undefined label.        **
 **            20200424 AA  Improved '%' tag parsing                  **
 **            20200421 AA  Added '%' tag for printing formatted      **
@@ -1176,7 +1177,7 @@ handleTag: procedure expose g.
     when sTag = '',                           /* ()  ...reset data type */
       | inset(sTag,'A B C F H P S X') then do /* (x) ...set data type   */
       g.0TYPE = sTag
-      g.0ISCODE = 0                    /* Switch to data mode           */
+      g.0ISCODE = 0            /* Decode subsequent hex as data    */
     end
     when sTag1 = '"' then do           /* "section" */
       sTag = strip(sTag,'BOTH','"')
@@ -1188,6 +1189,7 @@ handleTag: procedure expose g.
     end
     when sTag1 = '%' then do           /* %AL4 2F 3H CL14 (for example) */
       parse var sTag '%'sTableEntry
+      g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0
       do i = 1 to words(sTableEntry)
         w = word(sTableEntry,i)
