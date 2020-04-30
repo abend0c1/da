@@ -529,6 +529,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200430 AA  Handle 31-bit addresses better.           **
 **            20200429 AA  Switch to data parsing mode on % tag.     **
 **            20200427 AA  Emit EQU for each undefined label.        **
 **            20200424 AA  Improved '%' tag parsing                  **
@@ -1804,11 +1805,21 @@ doAddress: procedure expose g.
   xData = c2x(sData)
   select
     when nData = 4 then do    /* Generate A(label) or AL4(label)     */
-      xLoc = d2x(x2d(xData))  /* Remove leading zeros */
+      xLoc = xData
+      sLoc = right(x2c(xLoc),4,'00'x)
+      b31  = bitand(sLoc,'80000000'x) = '80000000'x
+      if b31
+      then do
+        sLoc = bitand(sLoc,'7FFFFFFF'x)
+        xLoc = c2x(sLoc)
+      end
+      xLoc = d2x(x2d(xLoc))  /* Remove leading zeros */
       sLabel = getLabel(xLoc)
       if sLabel = ''
       then sLabel = label(xLoc)
       call refLabel sLabel,xLoc
+      if b31 
+      then sLabel = sLabel"+X'80000000'"
       if isFullwordBoundary()
       then call saveStmt 'DC',a(sLabel),x(xData),g.0XLOC8 xData
       else call saveStmt 'DC',al(sLabel,4),x(xData),g.0XLOC8 xData
