@@ -1340,7 +1340,7 @@ return
 addDot: procedure expose g.
   parse arg xLoc .
   nLoc = x2d(xLoc)
-  xLoc = d2x(nLoc)) /* normalise hex */
+  xLoc = d2x(nLoc) /* normalise hex */
   if g.0DOTS.xLoc = ''
   then do
     n = g.0DOT.0 + 1
@@ -2404,7 +2404,7 @@ dxb: procedure expose g. /* 12-bit displacement off base reg with index reg */
   end
                    /* it's a displacement from a base WITH index register */
   if sLabel = ''
-  then return u(xDisp)'('xr(xIndexReg)','r(xBaseReg)')' /* LA Rn,X'xxx'(Rx,Rb)*
+  then return u(xDisp)'('xr(xIndexReg)','r(xBaseReg)')' /* LA Rn,X'xxx'(Rx,Rb)*/
 return sLabel'('xr(xIndexReg)')'            /* LA Rn,label(Rx)              */
 
 ldxb: procedure expose g. /* 20-bit displacement off base reg with index reg */
