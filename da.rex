@@ -529,6 +529,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200501 AA  Added '(Rnn[+Rnn..]=Rnn) tag.             **
 **            20200430 AA  Handle 31-bit addresses better.           **
 **            20200429 AA  Switch to data parsing mode on % tag.     **
 **            20200427 AA  Emit EQU for each undefined label.        **
@@ -751,6 +752,9 @@ trace o
   if nUndefinedLabels > 0
   then say 'DIS0011W There are' nUndefinedLabels 'references to undefined labels',
            '(see end of listing)'
+  if g.0NEWDOTS > 0
+  then say 'DIS0013I Will insert' g.0NEWDOTS 'new "(.=xxx)" tags.',
+           'Rerun DA to process them'
 
   /* Post-process all the generated statements */
   do n = 1 to g.0LINE
@@ -827,8 +831,6 @@ trace o
         'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc')"'
       end
     end
-    if nNewDots > 0
-    then say 'DIS0013I Inserted' nNewDots 'tags after line' g.0FIRSTCSECT
   end
 return 1
 
@@ -1298,19 +1300,30 @@ handleTag: procedure expose g.
             call attachDirective g.0XLOC,'DROP  R'nn,1
           end
         end
-        otherwise do                   /* (Rnn[+Rnn...]=label)     */
+        otherwise do                   /* (Rnn[+Rnn...]=label)     
+                                       or (Rnn[+Rnn...]=offset)
+                                       or (Rnn[+Rnn...]=Rnn        */
           /* USING label,Rnn[,Rmm...] */
-          if isHex(sLabel)             /* (Rnn[+Rnn...]=offset)    */
-          then do
-            xLoc = d2x(x2d(sLabel))    /* Remove leading zeros */
-            sLabel = getLabel(xLoc)    /* Get label from location if any */
-            if sLabel = ''             /* If location has no label */
-            then sLabel = getLabel(0)'+'||x(xLoc) /* Then use absolute offset */
+          nReg = getRegisterList(sLabel) /* Is nn when sLabel is Rnn */
+          select
+            when isHex(sLabel) then do   /* (Rnn[+Rnn...]=offset)    */
+              xLoc = d2x(x2d(sLabel))    /* Remove leading zeros */
+              sLabel = getLabel(xLoc)    /* Get label from location if any */
+              if sLabel = ''             /* If location has no label */
+              then sLabel = getLabel(0)'+'||x(xLoc) /* Then use absolute offset */
+              dLoc = x2d(xLoc)
+            end
+            when isNum(nReg) then do     /* (Rnn[+Rnn...]=Rnn) */
+              x = d2x(nReg)              /* Base register (0 to F) */
+              xLoc = g.0CBASE.x          /* Get location from base register */
+              sLabel = getLabel(xLoc)    /* ...as a label */
+              dLoc = x2d(xLoc)           /* ...as a decimal */
+            end
+            otherwise do                 /* (Rnn[+Rnn...]=label) */
+              xLoc = getLabel(sLabel)    /* Get location from label */
+              dLoc = x2d(xLoc)
+            end
           end
-          else do
-            xLoc = getLabel(sLabel)    /* Get location from label */
-          end
-          dLoc = x2d(xLoc)
           do i = 1 to nRegisters
             nn = word(sRegisters,i)
             x = d2x(nn)                /* Base register (0 to F) */
@@ -1487,12 +1500,18 @@ return left(sStmt,71)
 saveUndefinedLabels:
   call sortStem 'g.0REFLOC.'
   /* First, detect if there are any undefined labels */
+  g.0NEWDOTS = 0
   nLabels = 0
   do i = 1 to sorted.0
     n = sorted.i
     nLoc = g.0REFLOC.n
+    xLoc = d2x(nL0c)
     if g.0DEF.nLoc = ''
-    then nLabels = nLabels + 1
+    then do
+      nLabels = nLabels + 1
+      if g.0DOTS.xLoc = ''
+      then g.0NEWDOTS = g.0NEWDOTS + 1
+    end
   end
   if nLabels > 0
   then do
