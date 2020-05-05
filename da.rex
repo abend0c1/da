@@ -402,6 +402,12 @@ BEGIN-JCL-COMMENTS
 **              The equivalent assembler directive is:               **
 **              USING *,Rn,Rm                                        **
 **                                                                   **
+**    (Rn+Rm=Ry) Same as (Rn+Rm) except that Rn+Rm points to the     **
+**              location curently declared for Ry.                   **
+**              The equivalent assembler directive is:               **
+**              DROP  Ry                                             **
+**              USING *,Rn,Rm                                        **
+**                                                                   **
 **    (Rn=>name'desc')                                               **
 **              Specifies that register n (where n = 0 to 15) points **
 **              to (=>) a dummy section (DSECT) called "name".       **
@@ -529,6 +535,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200505 AA  Miscellaneous bug fixes.                  **
+**            20200501 AA  Emit A(label) if label is known.          **
 **            20200501 AA  Added '(Rnn[+Rnn..]=Rnn) tag.             **
 **            20200430 AA  Handle 31-bit addresses better.           **
 **            20200429 AA  Switch to data parsing mode on % tag.     **
@@ -753,8 +761,8 @@ trace o
   then say 'DIS0011W There are' nUndefinedLabels 'references to undefined labels',
            '(see end of listing)'
   if g.0NEWDOTS > 0
-  then say 'DIS0013I Will insert' g.0NEWDOTS 'new "(.=xxx)" tags.',
-           'Rerun DA to process them'
+  then say 'DIS0013I Rerun DA to process' g.0NEWDOTS 'new references'
+  else say 'DIS0014I DA processing complete'
 
   /* Post-process all the generated statements */
   do n = 1 to g.0LINE
@@ -1091,7 +1099,7 @@ generateAsm: procedure expose g.
   sJob = left(userid()'A',8)
   queue '//'sJob   "JOB ,'ASM',CLASS=U,MSGCLASS=T,NOTIFY=&SYSUID"
   queue '//ASM     EXEC PGM=ASMA90,'
-  queue '//             PARM=(NOOBJECT,NODECK,LINECOUNT(0))'
+  queue "//             PARM=('NOOBJECT,NODECK,LINECOUNT(0)')"
   queue '//SYSLIB    DD DISP=SHR,DSN=SYS1.MACLIB'
   queue '//          DD DISP=SHR,DSN=SYS1.MODGEN'
   queue '//SYSPRINT  DD SYSOUT=*,RECFM=V'
@@ -1181,6 +1189,7 @@ handleTag: procedure expose g.
       | inset(sTag,'A B C F H P S X') then do /* (x) ...set data type   */
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
+      g.0FIELD.0 = 0           /* Reset table entry generation     */
     end
     when sTag1 = '"' then do           /* "section" */
       sTag = strip(sTag,'BOTH','"')
@@ -1193,7 +1202,7 @@ handleTag: procedure expose g.
     when sTag1 = '%' then do           /* %AL4 2F 3H CL14 (for example) */
       parse var sTag '%'sTableEntry
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
-      g.0FIELD.0 = 0
+      g.0FIELD.0 = 0           /* Reset table entry generation     */
       do i = 1 to words(sTableEntry)
         w = word(sTableEntry,i)
         w = translate(w)               /* Convert to upper case */
@@ -1292,13 +1301,15 @@ handleTag: procedure expose g.
         end
         when sLabel = '' then do       /* (Rnn[+Rmm...]=)          */
           /* DROP Rnn[,Rmm...] */
+          sDrop = ''
           do i = 1 to nRegisters
             nn = word(sRegisters,i)
             x = d2x(nn)                /* Base register (0 to F) */
             g.0CBASE.x = ''
             g.0DBASE.x = ''
-            call attachDirective g.0XLOC,'DROP  R'nn,1
+            sDrop = sDrop' ,R'nn
           end
+          call attachDirective g.0XLOC,'DROP  'substr(sDrop,2),1
         end
         otherwise do                   /* (Rnn[+Rnn...]=label)     
                                        or (Rnn[+Rnn...]=offset)
@@ -1318,6 +1329,9 @@ handleTag: procedure expose g.
               xLoc = g.0CBASE.x          /* Get location from base register */
               sLabel = getLabel(xLoc)    /* ...as a label */
               dLoc = x2d(xLoc)           /* ...as a decimal */
+              g.0CBASE.x = ''            /* Drop =Rnn to avoid overlaps */
+              g.0DBASE.x = ''
+              call attachDirective g.0XLOC,'DROP  R'nReg,1
             end
             otherwise do                 /* (Rnn[+Rnn...]=label) */
               xLoc = getLabel(sLabel)    /* Get location from label */
@@ -1535,7 +1549,7 @@ saveUndefinedLabels:
         n = g.0EQU.0 + 1
         g.0EQU.0 = n
         g.0EQU.n = sLabel "EQU   @+X'"xLoc"'," ||,
-                   g.0CLENG.xLoc",C'X',X'DEADC0DE'"
+                   g.0CLENG.xLoc",C'X',X'DEC0DE'"
       end
     end
     if g.0EQU.0 > 0
@@ -1622,6 +1636,13 @@ decodeData: procedure expose g.
   do i = 1 to g.0SLICE.0
     sData = g.0SLICE.i
     do until length(sData) = 0
+      if nSlices > 1            /* i.e. |----|--|------|...               */
+      then do                   /*       1   |2  3                        */
+        xLoc = d2x(g.0LOC)      /*           |                            */
+        sLabel = getLabel(xLoc) /*           x (here, and onward...)      */
+        if sLabel = ''
+        then call setLabel label(xLoc),xLoc     /* Assign a label to location */
+      end
       if g.0FIELD.0 > 0        /* If parsing fields in a table row       */
       then do                  /* Emit each field in this table row      */
         sSaveType = g.0TYPE
@@ -1835,8 +1856,12 @@ doAddress: procedure expose g.
       xLoc = d2x(x2d(xLoc))  /* Remove leading zeros */
       sLabel = getLabel(xLoc)
       if sLabel = ''
-      then sLabel = label(xLoc)
-      call refLabel sLabel,xLoc
+      then do
+        if x2d(xLoc) < g.0LOC
+        then call addBackRef xLoc
+        sLabel = label(xLoc)
+        call refLabel sLabel,xLoc
+      end
       if b31 
       then sLabel = sLabel"+X'80000000'"
       if isFullwordBoundary()
@@ -1847,12 +1872,16 @@ doAddress: procedure expose g.
       xLoc = d2x(x2d(xData))  /* Remove leading zeros */
       sLabel = getLabel(xLoc)
       if sLabel = ''
-      then sLabel = label(xLoc)
-      call refLabel sLabel,xLoc
+      then do
+        if x2d(xLoc) < g.0LOC
+        then call addBackRef xLoc
+        sLabel = label(xLoc)
+        call refLabel sLabel,xLoc
+      end
       call saveStmt 'DC',al(sLabel,3),x(xData),g.0XLOC8 xData
     end
     otherwise do              /* Generate ALn(decimal)               */
-      call saveStmt 'DC',al(xData),x(xData),g.0XLOC8 xData
+      call saveStmt 'DC',ald(xData),x(xData),g.0XLOC8 xData
     end
   end
   call nextLoc +nData
@@ -1903,7 +1932,23 @@ doHex: procedure expose g.
 return
 
 doUnspecified: procedure expose g.
-  parse arg sData
+  parse arg sData 0 s4 +4
+  /* Prioritise a leading 4-byte address constant - which happens quite
+     often. This avoids say 0000C4D4 being decoded as
+     XL2'0000',C'DM' when, if C4D4 already has a label assigned,
+     A(somelabel) would be more appropriate
+  */
+  if isFullwordBoundary() & length(s4) = 4
+  then do
+    sAdCon = adcon(s4) /* Returns A(somelabel) if possible, else null */
+    if sAdCon \= ''
+    then do
+      x4 = c2x(s4)
+      call saveStmt 'DC',sAdCon,x(x4),g.0XLOC8 x4 /* Emit A(somelabel) */
+      call nextLoc +length(s4)
+      parse var sData . +4 sData
+    end
+  end
   nFirstNonText = verify(sData,g.0EBCDIC,'NOMATCH')
   nFirstText    = verify(sData,g.0EBCDIC,'MATCH')
 /*
@@ -1956,20 +2001,60 @@ return sData
 
 doBinary: procedure expose g.
   parse arg sData
-  if isOddBoundary()
-  then do /* emit the 1st byte so that the rest aligns on an even boundary */
-    parse arg sChunk +1 sData
-    xChunk = c2x(sChunk)
-    call saveStmt 'DC',data(xChunk),,g.0XLOC8 xChunk
-    call nextLoc +1
-  end
-  do while length(sData) > 0
-    parse var sData sChunk +16 sData
+  if \isFullwordBoundary() & length(sData) > 0
+  then do /* Emit 1 to 3 bytes so that the rest aligns on a 4-byte boundary */
+    nChunk = g.0LOC//4
+    parse arg sChunk +(nChunk) sData
     xChunk = c2x(sChunk)
     call saveStmt 'DC',data(xChunk),,g.0XLOC8 xChunk
     call nextLoc +length(sChunk)
   end
+  do while length(sData) > 0
+    parse var sData sChunk x.1 +4 x.2 +4 x.3 +4 x.4 +4 sData /* Four words at a time */
+    sBin = ''
+    do i = 1 to 4 while length(x.i) > 0 /* For each fullword... */
+      s4 = x.i                          /* 1 to 4 bytes */
+      sAdCon = adcon(s4)                /* Convert to a named address if one exists */
+      if sAdCon = ''
+      then sBin = sBin || s4            /* Accumulate this binary chunk */
+      else do
+        sBin = doBin(sBin)              /* Emit any preceeding binary chunk */
+        x4 = c2x(s4)
+        call saveStmt 'DC',sAdCon,x(x4),g.0XLOC8 x4 /* Emit A(somelabel) */
+        call nextLoc +length(s4)
+      end
+    end
+    sBin = doBin(sBin)                    /* Emit any residual binary */
+  end
 return
+
+doBin: procedure expose g.
+  parse arg sBin
+  nBin = length(sBin)
+  if nBin > 0
+  then do
+    xBin = c2x(sBin)
+    call saveStmt 'DC',data(xBin),,g.0XLOC8 xBin
+    call nextLoc +(nBin)
+  end
+return ''
+
+adcon: procedure expose g.
+  parse arg sArg
+  if length(sArg) \= 4 then return ''
+  if sArg = '00000000'x then return ''
+  b31 = bitand(sArg,'80000000'x) = '80000000'x
+  if b31
+  then sLoc = bitand(sArg,'7FFFFFFF'x)
+  else sLoc = sArg
+  xLoc = c2x(sLoc)
+  xLoc = d2x(x2d(xLoc))  /* Remove leading zeros */
+  sLabel = getLabel(xLoc)
+  if sLabel = '' then return ''
+  call refLabel sLabel,xLoc
+  if b31
+  then sLabel = sLabel"+X'80000000'"
+return 'A('sLabel')'
 
 isOddBoundary: procedure expose g.
 return g.0LOC//2
@@ -1989,22 +2074,22 @@ data: procedure expose g.
     when nBoundary = 0 & nBytes = 4 then return fhx(xData) /* fw on fw */
     when nBoundary = 0 & nBytes = 2 then return hx(xData)  /* hw on fw */
     when nBoundary = 2 & nBytes = 2 then return hx(xData)  /* hw on hw */
-    when nBytes = 1 then return al(xData) /* single byte */
+    when nBytes = 1 then return ald(xData) /* single byte */
     otherwise nop
   end
 return xl(xData)                          /* multi byte */
 
-a: procedure             /* Address */
-  arg xData .
-  if datatype(xData,'X')
-  then return 'A('x2d(xData)')'
-return 'A('xData')'
+a: procedure             /* Address (aligned on a fullword boundary) */
+  arg sLabel .
+return 'A('sLabel')'
 
-al: procedure            /* Address with length */
-  arg xData,nLen         /* xData can be hex or a label */
-  if datatype(xData,'X')
-  then return 'AL'length(xData)/2'('x2d(xData)')'
-return 'AL'nLen'('xData')'
+al: procedure            /* Address (unaligned) */
+  arg sLabel,nLen
+return 'AL'nLen'('sLabel')'
+
+ald: procedure           /* Address (as a decimal) */
+  arg xData
+return 'AL'length(xData)/2'('x2d(xData)')'
 
 cl: procedure            /* Character with length */
   parse arg s,n
@@ -2466,11 +2551,7 @@ getLabelDisp: procedure expose g.
       nTarget = x2d(xLoc) + x2d(xDisp)
       xTarget = d2x(nTarget)
       if nTarget < g.0LOC /* If target is before the current location */
-      then do /* Remember so we can apply labels later */
-        n = g.0BACKREF.0 + 1
-        g.0BACKREF.0 = n
-        g.0BACKREF.n = xTarget
-      end
+      then call addBackRef xTarget /* Remember so we can apply labels later */
       if getLabel(xTarget) = ''  /* If a label is not already assigned */
       then call refLabel label(xTarget),xTarget
       sLabel = getLabel(xTarget)
@@ -2487,6 +2568,13 @@ getLabelDisp: procedure expose g.
     otherwise nop                /* Unnamed base+displacement */
   end
 return sLabel
+
+addBackRef: procedure expose g.
+  arg xLoc
+  n = g.0BACKREF.0 + 1
+  g.0BACKREF.0 = n
+  g.0BACKREF.n = xLoc
+return
 
 getDsectLabel: procedure expose g.
   arg xDisp,xBaseReg,xLength
@@ -2621,22 +2709,18 @@ getLabelRel: procedure expose g.
   if nTarget < 0 then nTarget = 0
   xTarget = d2x(nTarget)
   if nOffset < 0 & getLabel(xTarget) = '' /* If unlabeled back reference */
-  then do /* Remember so we can apply labels later */
-    n = g.0BACKREF.0 + 1
-    g.0BACKREF.0 = n
-    g.0BACKREF.n = xTarget
-  end
+  then call addBackRef xTarget /* Remember so we can apply labels later */
   if getLabel(xTarget) = ''  /* If a label is not already assigned */
   then call refLabel label(xTarget),xTarget
 return getLabel(xTarget)
 
-getLabel: procedure expose g.
+getLabel: procedure expose g.    /* Label name for this hex location */
   arg xLoc
 return g.0LABEL.xLoc
 
-getLocation: procedure expose g. /* Technically the same as getLabel() */
+getLocation: procedure expose g. /* Hex location for this label */
   arg sLabel
-return g.0LABEL.sLabel
+return g.0XLOC.sLabel
 
 isReferredTo: procedure expose g.
   parse arg xLoc
@@ -2669,7 +2753,7 @@ setLabel: procedure expose g.
   parse arg sLabel,xLoc
   xLoc = d2x(x2d(xLoc))       /* Remove leading zeros from xLoc */
   g.0LABEL.xLoc = sLabel      /* Assign a label to this location */
-  g.0LABEL.sLabel = xLoc      /* Facilitate retrieving location of a label */
+  g.0XLOC.sLabel = xLoc       /* Facilitate retrieving location of a label */
 return
 
 label: procedure expose g.

@@ -473,6 +473,46 @@ immediately before the hex to which they apply:
              USING *,Rn,Rm
     ```
 
+* ## (R*n*+R*m*+...=Ry)
+    Similar to the `(R*n*+R*m*+...)` tag described above except that register
+    *n* points to the location currently declared for register *y* instead of
+    the location immediately after the tag.
+
+    The equivalent assembler directives are:
+
+    ```
+             DROP  Ry
+             USING *,Rn,Rm
+    ```
+
+    For example:
+    ```
+    (MYCSECT,R15)47F0F00C .C8C940E3 C8C5D9C5 ,18CF 18AF 
+    A7AA1000(R12+R10=R15) 5820C014 07FE . 0000000A
+    ```
+    The above would be disassembled as:
+    ```
+            USING MYCSECT,R15
+    *       -----------------
+    MYCSECT B     LC
+
+    L4      DC    CL8'HI THERE'
+
+    LC      LR     R12,R15
+            LR     R10,R15
+            AHI    R10,4096
+            DROP   R15
+    *       ----------
+            USING  MYCSECT,R12,R10
+    *       ----------------------
+
+    LE      L      R2,L14
+            BR     R14
+
+    L14     DC     F'10'
+
+    ```
+
 * ## (R*n*=>*name* '*desc*')
     Specifies that register *n* (where *n* = 0 to 15) points
     to (`=>`) a dummy section (DSECT) called *name*.
@@ -489,7 +529,27 @@ immediately before the hex to which they apply:
     ```
              USING name,Rn
     ```
+    For example:
+    ```
+    18D1 (R13=>WA) 4110D004 4120D010 5020D008
+    ```
+    The above would be disassembled as:
+    ```
+            LR     R13,R1
+            USING  WA,R13
+    *       -------------
+            LA     R1,WA_4
+            LA     R2,WA_10
+            ST     R2,WA_8
 
+    WA      DSECT
+            DS     XL4
+    WA_4    DS     0X
+            DS     XL4
+    WA_8    DS     XL4
+            DS     XL4
+    WA_10   DS     0X
+    ```
 * ## (R*n*=*xxx*)
     Specifies that register *n* (where *n* = 0 to 15) points
     to location *xxx* in hexadecimal.
