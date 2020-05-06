@@ -1848,12 +1848,8 @@ doAddress: procedure expose g.
       xLoc = xData
       sLoc = right(x2c(xLoc),4,'00'x)
       b31  = bitand(sLoc,'80000000'x) = '80000000'x
-      if b31
-      then do
-        sLoc = bitand(sLoc,'7FFFFFFF'x)
-        xLoc = c2x(sLoc)
-      end
-      xLoc = d2x(x2d(xLoc))  /* Remove leading zeros */
+      sLoc = bitand(sLoc,'7FFFFFFF'x)
+      xLoc = d2x(x2d(c2x(sLoc)))  /* Remove leading zeros */
       sLabel = getLabel(xLoc)
       if sLabel = ''
       then do
@@ -2044,11 +2040,9 @@ adcon: procedure expose g.
   if length(sArg) \= 4 then return ''
   if sArg = '00000000'x then return ''
   b31 = bitand(sArg,'80000000'x) = '80000000'x
-  if b31
-  then sLoc = bitand(sArg,'7FFFFFFF'x)
-  else sLoc = sArg
-  xLoc = c2x(sLoc)
-  xLoc = d2x(x2d(xLoc))  /* Remove leading zeros */
+  sLoc = bitand(sArg,'7FFFFFFF'x)
+  if sLoc = '00000000'x then return ''
+  xLoc = d2x(x2d(c2x(sLoc)))  /* Remove leading zeros */
   sLabel = getLabel(xLoc)
   if sLabel = '' then return ''
   call refLabel sLabel,xLoc
