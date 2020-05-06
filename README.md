@@ -349,7 +349,19 @@ immediately before the hex to which they apply:
     by either a `/` action marker, or an empty tag list `()`, or an empty *formatspec* tag: `(%)`.
     Each row of table data is parsed according to the *formatspec*.
     The *formatspec* consists of zero or more space delimited assembler storage
-    type declarations each having the format: `[duplication_factor][type][length_modifier]`
+    type declarations each having the format: 
+    ```
+    [duplication_factor][type][length_modifier]
+    ```
+    or
+    ```
+    [type][length_modifier]=variable_name
+    ```
+    or
+    ```
+    [type][length_modifier]:length_expression
+    ```
+
     ...for example, `4XL3`.
     The default *duplication_factor* (the repetition count for the field) is 1.
     The default *type* is X (hexadecimal).
@@ -408,6 +420,53 @@ immediately before the hex to which they apply:
              DC    PL4'2621680'
     ```
     <sup>1</sup><sub>Australian state and territory population data (June 2019)</sub>
+
+    By using the `=variable_name` and `:length_expression` syntax, you can parse variable
+    length data. 
+    
+    When `=variable_name` is specified, a rexx variable is created called `$variable_name` -
+    to avoid clashes with variables already used by the DA Rexx procedure - 
+    containing the contents of the associated field converted to decimal.
+    
+    When `:length_expression` is specified, the expression can be any simple Rexx 
+    expression that results in a positive whole number. The expression must not contain
+    parentheses. You should use variable names you created prefixed with a `$` sign, 
+    else the result will be unpredictable.
+    
+    For example, the following table entries contain string length fields which are
+    one less than the actual length of each string:
+
+    ```
+    (%AL1=len CL:$len+1).
+    18 C1E4 E2E3D9C1 D3C9C1D5 40C3C1D7 C9E3C1D3 40E3C5D9 D9C9E3D6 D9E8
+    0E D5C5 E640E2D6 E4E3C840 E6C1D3C5 E2
+    11 D5D6 D9E3C8C5 D9D540E3 C5D9D9C9 E3D6D9E8
+    09 D8E4 C5C5D5E2 D3C1D5C4
+    0E E2D6 E4E3C840 C1E4E2E3 D9C1D3C9 C1
+    07 E3C1 E2D4C1D5 C9C1
+    07 E5C9 C3E3D6D9 C9C1
+    10 E6C5 E2E3C5D9 D540C1E4 E2E3D9C1 D3C9C1
+    ```
+    ...(spaces again inserted for clarity) will be disassembled as:
+    ```
+    L0       DC    AL1(27)
+             DC    CL28'AUSTRALIAN CAPITAL TERRITORY'
+             DC    AL1(14)
+             DC    CL15'NEW SOUTH WALES'
+             DC    AL1(17)
+             DC    CL18'NORTHERN TERRITORY'
+             DC    AL1(9)
+             DC    CL10'QUEENSLAND'
+             DC    AL1(14)
+             DC    CL15'SOUTH AUSTRALIA'
+             DC    AL1(7)
+             DC    CL8'TASMANIA'
+             DC    AL1(7)
+             DC    CL8'VICTORIA'
+             DC    AL1(16)
+             DC    CL17'WESTERN AUSTRALIA'
+    ```
+    Note: if you specify invalid variable names or expressions then expect pain.
 
 * ## ()
     Resets the data type tag so that automatic data type

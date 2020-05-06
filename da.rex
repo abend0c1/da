@@ -535,6 +535,10 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200507 AA  Tidied up address handling a little.      **
+**                         Extended the '%' tag to handle parsing    **
+**                         of variable length table entries. This is **
+**                         useful for parsing error message tables.  **
 **            20200505 AA  Miscellaneous bug fixes.                  **
 **            20200501 AA  Emit A(label) if label is known.          **
 **            20200501 AA  Added '(Rnn[+Rnn..]=Rnn) tag.             **
@@ -1203,11 +1207,22 @@ handleTag: procedure expose g.
       parse var sTag '%'sTableEntry
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
-      do i = 1 to words(sTableEntry)
-        w = word(sTableEntry,i)
-        w = translate(w)               /* Convert to upper case */
+      do nToken = 1 to words(sTableEntry)
+        sToken = word(sTableEntry,nToken)
+        sToken = translate(sToken)     /* Convert to upper case */
+        sVar = ''
+        sExp = ''
+        select
+          when pos('=',sToken) > 0 then do  /* token=var */
+            parse var sToken sToken'='sVar
+          end
+          when pos(':',sToken) > 0 then do  /* token:expression */
+            parse var sToken sToken':'sExp
+          end
+          otherwise nop
+        end
 /*
-        w       Meaning
+        sToken  Meaning
         ------- ------------------------------------
                 Reset table entry template
         A       Data type A with implicit length of 4
@@ -1216,21 +1231,23 @@ handleTag: procedure expose g.
         2AL1    2 x data type A with explicit length of 1
         2       Data type X (default) of length 2     (type not specified)
         2x3     2 x data type X (default) of length 3 (when x is invalid type)
+        AL1=n   Parse 1 byte and assign it to variable n (rexx variable $n)
+        CL:$n+1 Parse $n+1 bytes of data type C
 */        
         nRep = ''
         sTyp = ''
         nLen = ''
-        do j = 1 to length(w)
-          c = substr(w,j,1)
+        do nChar = 1 to length(sToken)
+          c = substr(sToken,nChar,1)
           if pos(c,'01234567890') = 0 then leave
           nRep = nRep || c
         end
-        do j = j to length(w)
-          c = substr(w,j,1)
+        do nChar = nChar to length(sToken)
+          c = substr(sToken,nChar,1)
           if pos(c,'01234567890') > 0 then leave
           sTyp = sTyp || c
         end
-        nLen = substr(w,j)
+        nLen = substr(sToken,nChar)
         if sTyp = '' & nLen = ''
         then do /* 3 --> XL3, not 3XL1 */
           nLen = nRep
@@ -1243,6 +1260,8 @@ handleTag: procedure expose g.
         n = g.0FIELD.0 + 1
         g.0FIELD.0 = n
         g.0FIELD.n = nRep sTyp nLen
+        g.0FIELDVAR.n = sVar           /* Assign content of field to var */
+        g.0FIELDEXP.n = sExp           /* Parse field of length 'expr' */
       end
     end
     when sTag1 = '@' then do           /* @addr */
@@ -1633,8 +1652,8 @@ decodeData: procedure expose g.
   g.0SLICE.0 = 1
   g.0SLICE.1 = x2c(xData)
   nSlices = getSlices(g.0LOC,g.0LOC+length(g.0SLICE.1)-1)
-  do i = 1 to g.0SLICE.0
-    sData = g.0SLICE.i
+  do nSlice = 1 to g.0SLICE.0
+    sData = g.0SLICE.nSlice
     do until length(sData) = 0
       if nSlices > 1            /* i.e. |----|--|------|...               */
       then do                   /*       1   |2  3                        */
@@ -1647,13 +1666,27 @@ decodeData: procedure expose g.
       then do                  /* Emit each field in this table row      */
         sSaveType = g.0TYPE
         /* For each field in this table row... */
-        do j = 1 to g.0FIELD.0 while length(sData) <> 0
-          parse var g.0FIELD.j nRep sTyp nLen
+        do nField = 1 to g.0FIELD.0 while length(sData) <> 0
+          parse var g.0FIELD.nField nRep sTyp nLen
           g.0TYPE = sTyp                  /* Set the field type */
-          /* For each repetition of this data type... */
-          do k = 1 to nRep while length(sData) <> 0
-            parse var sData sField +(nLen) sData /* Get field */
-            s = decodeDataField(sField) /* Decode the field as g.0TYPE */
+          select
+            when g.0FIELDVAR.nField \= '' then do /* Assign field to variable */
+              parse var sData sField +(nLen) sData /* Get field*/
+              s = decodeDataField(sField) /* Decode the field as g.0TYPE */
+              interpret '$'g.0FIELD.nField '=' c2d(sField)
+            end
+            when g.0FIELDEXP.nField \= '' then do /* Compute field length */
+              interpret 'nLen =' g.0FIELDEXP.nField
+              parse var sData sField +(nLen) sData /* Get variable field*/
+              s = decodeDataField(sField) /* Decode the field as g.0TYPE */
+            end
+            otherwise do
+              /* For each repetition of this data type... */
+              do nRep while length(sData) <> 0
+                parse var sData sField +(nLen) sData /* Get field */
+                s = decodeDataField(sField) /* Decode the field as g.0TYPE */
+              end
+            end
           end
         end
         g.0TYPE = sSaveType
