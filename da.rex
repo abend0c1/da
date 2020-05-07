@@ -315,7 +315,11 @@ BEGIN-JCL-COMMENTS
 **              data is parsed according to the formatspec. The      **
 **              formatspec consists of zero or more space delimited  **
 **              assembler storage type declaratins each having the   **
-**              format: <duplication_factor><type><length_modifier>  **
+**              format:                                              **
+**                      <duplication_factor><type><length_modifier>  **
+**                  or: <type><length_modifier>=<variable_name>      **
+**                  or: <type><length_expression>                    **
+**                                                                   **
 **              ...for example, 4XL3. The default duplication_factor **
 **              (the repetition count for the field) is 1. The       **
 **              default type is X (hexadecimal). The default length_ **
@@ -355,6 +359,35 @@ BEGIN-JCL-COMMENTS
 **                       DC   XL1'01'                                **
 **                       DC   PL4'8089526'                           **
 **                                                                   **
+**              By using the =variable_name and :length_expression   **
+**              syntax, you can parse variable length data.          **
+**                                                                   **
+**              When =variable_name is specified, a rexx variable is **
+**              created called $variable_name - to avoid clashes with**
+**              variables already used by the DA Rex procedure -     **
+**              containing the contents of the associated field      **
+**              converted to decimal.                                **
+**                                                                   **
+**              When :length_expression is specified, the expression **
+**              can be any simple Rexx expression that results in a  **
+**              positive whole number. The expression must not cont- **
+**              ain parentheses. You should use variable names you   **
+**              created with a $ sign prepended, else the result will**
+**              be unpredictable.                                    **
+**                                                                   **
+**              For example,                                         **
+**                                                                   **
+**              (%AL1=n CL:$n+1).                                    **
+**              00 C1 01 C1C2 02 C1C2C3                              **
+**                                                                   **
+**              ...will be disassembled as:                          **
+**                                                                   **
+**              L0       DC   AL1(0)          <-- Variable string 1  **
+**                       DC   CL1'A'                                 **
+**                       DC   AL1(1)          <-- Variable string 2  **
+**                       DC   CL2'AB'                                **
+**                       DC   AL1(2)          <-- Variable string 3  **
+**                       DC   CL3'ABC'                               **
 **                                                                   **
 **    ()        Resets the data type tag so that automatic data type **
 **              detection is enabled. Automatic data type detection  **
@@ -535,7 +568,9 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
-**            20200507 AA  Tidied up address handling a little.      **
+**            20200507 AA  Added onSyntax trap to help identify the  **
+**                         location of the error in the input hex.   **
+**            20200506 AA  Tidied up address handling a little.      **
 **                         Extended the '%' tag to handle parsing    **
 **                         of variable length table entries. This is **
 **                         useful for parsing error message tables.  **
@@ -601,6 +636,7 @@ END-JCL-COMMENTS
 **                                                                   **
 **********************************************************************/
 trace o
+  signal on syntax name onSyntax
   parse arg sDsn'('sMod')' '('sOptions
   if sDsn = '' then parse arg '('sOptions
   sDsn = strip(sDSN,'BOTH',"'")
@@ -845,6 +881,15 @@ trace o
     end
   end
 return 1
+
+onSyntax:
+  sSourceLine = strip(sourceline(sigl))
+  say 'DIS0099I' errortext(rc) 'at line' sigl':' sSourceLine
+  parse upper var sSourceLine sInst . . sExpr
+  if sInst = 'INTERPRET'
+  then say 'DIS0100E Invalid input at location' g.0XLOC8': "'value(sExpr)'"'
+  else say 'DIS0100E Invalid input at location' g.0XLOC8
+return
 
 xLoc8: procedure
   arg nLoc
@@ -1254,7 +1299,7 @@ handleTag: procedure expose g.
           nRep = 1
         end
         sTyp = left(sTyp,1)
-        if pos(sTyp,' ABCFHPSX') = 0 then sTyp = 'X'
+        if pos(sTyp,'ABCFHPSX') = 0 then sTyp = 'X'
         if nRep = '' then nRep = 1
         if nLen = '' then nLen = g.0LEN.sTyp
         n = g.0FIELD.0 + 1
@@ -1280,6 +1325,7 @@ handleTag: procedure expose g.
     end
     when sTag1 = 'R' & sRegisters <> '' then do  /* (Rnn[+Rmm...][=][label]) */
       parse var sLabel sLabel"'"sDesc"'" /* Peel off the label description */
+      sLabel = strip(sLabel)
       select
         when left(sLabel,1) = '>' then do /* Rnn[+Rmm...]=>dsect */
           /* USING dsect,Rnn[,Rmm...] */
@@ -1708,7 +1754,9 @@ decodeDataField: procedure expose g.
       call doBit sChunk        /* Bit */
     end
     when g.0TYPE = 'C' then do /* Character */
-      call doText sData
+      if isText(sData)
+      then call doText sData
+      else call doHex  sData
       sData = ''
     end
     when g.0TYPE = 'F' then do /* Fullword */
