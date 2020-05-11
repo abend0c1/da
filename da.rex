@@ -569,7 +569,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
-**            20200508 AA  Renamed the t() function to t() to     **
+**            20200508 AA  Renamed the t() function to t() to        **
 **                         save space in the definition data.        **
 **            20200507 AA  Added onSyntax trap to help identify the  **
 **                         location of the error in the input hex.   **
@@ -892,7 +892,7 @@ onSyntax:
   if sInst = 'INTERPRET'
   then say 'DIS0100E Invalid input at location' g.0XLOC8': "'value(sExpr)'"'
   else say 'DIS0100E Invalid input at location' g.0XLOC8
-return
+return ''
 
 xLoc8: procedure
   arg nLoc
