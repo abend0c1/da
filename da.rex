@@ -1,5 +1,5 @@
 /*REXX*/
-/* DA - z/OS Disassembler Edit Macro v1.0
+/* DA - z/OS Disassembler Edit Macro v2.0
 
 Copyright (c) 2019-2020, Andrew J. Armstrong
 All rights reserved.
@@ -26,7 +26,8 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **                                                                   **
 ** TITLE    - DISASSEMBLER EDIT MACRO                                **
 **                                                                   **
-** FUNCTION - Disassembles the AMBLIST output currently being edited.**
+** FUNCTION - Disassembles the AMBLIST output (or printable hex)     **
+**            that is currently being edited.                        **
 **                                                                   **
 **            This is usually an iterative process:                  **
 **                                                                   **
@@ -568,6 +569,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200508 AA  Renamed the t() function to t() to     **
+**                         save space in the definition data.        **
 **            20200507 AA  Added onSyntax trap to help identify the  **
 **                         location of the error in the input hex.   **
 **            20200506 AA  Tidied up address handling a little.      **
@@ -2332,12 +2335,12 @@ decodeInst: procedure expose g.
     V3 = RXB3||V3 /* Prepend high order bit to the V3 operand */
     V4 = RXB4||V4 /* Prepend high order bit to the V4 operand */
   end
-  interpret 'g.0TLENG =' sHint        /* 2. Get length hint from xOpCode   */
+  interpret 'TL =' sHint        /* 2. Get length hint from xOpCode   */
   interpret 'o =' sEmitter            /* 3. Generate instruction operands  */
   sOperands = space(o,,',')           /* Put commas between operands    */
   sOperands = translate(sOperands,' ',g.0HARDBLANK) /* Soften blanks :) */
   xCode     = left(xInst,nLen)
-  sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(g.0TLENG,3)
+  sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(TL,3)
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
   if pos(sFlag,'ACcM') > 0
@@ -2675,8 +2678,8 @@ getDsectLabel: procedure expose g.
 return sLabel
 
 
-hint: procedure expose g. /* Operand length hint */
-  /* Hint() is called as each instruction is being parsed and sets the */
+t: procedure expose g. /* Operand length hint */
+  /* This function is called as each instruction is being parsed and sets the */
   /* length in bytes of the field referenced by base+disp.  It always */
   /* returns '' so as not to add spurious characters to the generated */
   /* assembler instruction */
@@ -3371,9 +3374,9 @@ format:
   Note: Operands are separated by spaces (rather than commas) in order to
         simplify the table definition. Commas are inserted later.
 
-  The GENERATOR can also use the hint() rexx function to compute the lengths
+  The GENERATOR can also use the t() rexx function to compute the lengths
   of the operands if that is possible. It is not possible for MVCL, for
-  example, because MVCL length values are computed at run time. The hint()
+  example, because MVCL length values are computed at run time. The t()
   function always returns '' so it has no impact on the GENERATOR other than
   to assign length values to the operands.
 
@@ -3524,77 +3527,77 @@ RRS    . r(R1) r(R2) m(M3) db(D4,B4)
 RSa    8 O1 +2 R1 +1    .  +1  B2 +1  D2 +3
 RSa    . r(R1)       dbs(D2,B2)
 RSb    8 O1 +2 R1 +1    M3 +1  B2 +1  D2 +3
-RSb    . r(R1) m(M3) db(D2,B2)          hint(ml(M3),B2,D2)
+RSb    . r(R1) m(M3) db(D2,B2)          t(ml(M3),B2,D2)
 RSA    8 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3
-RSA    . r(R1) r(R3) db(D2,B2)          hint(g.0TLENG,B2,D2)
+RSA    . r(R1) r(R3) db(D2,B2)          t(TL,B2,D2)
 RSI    8 O1 +2 R1 +1    R3 +1 RI2 +4
 RSI    . r(R1) r(R3) s4(RI2)
 RSLa  12 O1 +2 L1 +1     . +1  B1 +1  D1 +3   . +1  . +1 O2 +2
-RSLa   . dlb(D1,L1,B1)                  hint(L1,B1,D1)
+RSLa   . dlb(D1,L1,B1)                  t(L1,B1,D1)
 RSLb  12 O1 +2 L2 +2           B2 +1  D2 +3  R1 +1 M3 +1 O2 +2
-RSLb   . r(R1) dlb(D2,L2,B2) m(M3)      hint(L2,B2,D2)
+RSLb   . r(R1) dlb(D2,L2,B2) m(M3)      t(L2,B2,D2)
 RSYa  12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RSYa   . r(R1) r(R3) ldb(DH2||DL2,B2)   hint(g.0TLENG,B2,DH2||DL2)
+RSYa   . r(R1) r(R3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2)
 RSYas 12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RSYas  . r(R1) r(R3) ldbs(DH2||DL2,B2)
 RSYb  12 O1 +2 R1 +1    M3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RSYb   . r(R1) m(M3) ldb(DH2||DL2,B2)   hint(g.0TLENG,B2,DH2||DL2)
+RSYb   . r(R1) m(M3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2)
 RSYbm 12 O1 +2 R1 +1    M3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RSYbm  . r(R1) m(M3) ldb(DH2||DL2,B2)   hint(ml(M3),B2,DH2||DL2)
+RSYbm  . r(R1) m(M3) ldb(DH2||DL2,B2)   t(ml(M3),B2,DH2||DL2)
 RXa    8 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3
-RXa    . r(R1) dxb(D2,X2,B2)            hint(g.0TLENG,B2,D2)
+RXa    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2)
 RXb    8 O1 +2 M1 +1    X2 +1  B2 +1  D2 +3
 RXb    . m(M1) dxb(D2,X2,B2)
 RXE   12 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3   . +1  . +1 O2 +2
-RXE    . r(R1) dxb(D2,X2,B2)            hint(g.0TLENG,B2,D2)
+RXE    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2)
 RXE3  12 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3  M3 +1  . +1 O2 +2
-RXE3   . r(R1) dxb(D2,X2,B2) m(M3)      hint(g.0TLENG,B2,D2)
+RXE3   . r(R1) dxb(D2,X2,B2) m(M3)      t(TL,B2,D2)
 RXF   12 O1 +2 R3 +1    X2 +1  B2 +1  D2 +3  R1 +1  . +1 O2 +2
-RXF    . r(R1) r(R3) dxb(D2,X2,B2)      hint(g.0TLENG,B2,D2)
+RXF    . r(R1) r(R3) dxb(D2,X2,B2)      t(TL,B2,D2)
 RXYa  12 O1 +2 R1 +1    X2 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RXYa   . r(R1) ldxb(DH2||DL2,X2,B2)     hint(g.0TLENG,B2,DH2||DL2)
+RXYa   . r(R1) ldxb(DH2||DL2,X2,B2)     t(TL,B2,DH2||DL2)
 RXYb  12 O1 +2 M1 +1    X2 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RXYb   . m(M1) ldxb(DH2||DL2,X2,B2)
 S      8 O1 +4 B2 +1    D2 +3
-S      . db(D2,B2)                      hint(g.0TLENG,B2,D2)
+S      . db(D2,B2)                      t(TL,B2,D2)
 SI     8 O1 +2 I2 +2    B1 +1  D1 +3
-SI     . db(D1,B1) u(I2)                hint(g.0TLENG,B1,D1)
+SI     . db(D1,B1) u(I2)                t(TL,B1,D1)
 SI0    8 O1 +2 I2 +2    B1 +1  D1 +3
-SI0    . db(D1,B1) m(I2)                hint(1,B1,D1)
+SI0    . db(D1,B1) m(I2)                t(1,B1,D1)
 SI1    8 O1 +2  . +2    B1 +1  D1 +3
-SI1    . db(D1,B1)                      hint(g.0TLENG,B1,D1)
+SI1    . db(D1,B1)                      t(TL,B1,D1)
 SIL   12 O1 +4 B1 +1    D1 +3  I2 +4
-SIL    . db(D1,B1) s2(I2)               hint(g.0TLENG,B1,D1)
+SIL    . db(D1,B1) s2(I2)               t(TL,B1,D1)
 SIY   12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
-SIY    . ldb(DH1||DL1,B1) s2(I2)        hint(g.0TLENG,B1,DH1||DL1)
+SIY    . ldb(DH1||DL1,B1) s2(I2)        t(TL,B1,DH1||DL1)
 SIYm  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
-SIYm   . ldb(DH1||DL1,B1) m(I2)         hint(1,B1,DH1||DL1)
+SIYm   . ldb(DH1||DL1,B1) m(I2)         t(1,B1,DH1||DL1)
 SIYx  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
-SIYx   . ldb(DH1||DL1,B1) x(I2)         hint(1,B1,DH1||DL1)
+SIYx   . ldb(DH1||DL1,B1) x(I2)         t(1,B1,DH1||DL1)
 SIYu  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
-SIYu   . ldb(DH1||DL1,B1) u(I2)         hint(1,B1,DH1||DL1)
+SIYu   . ldb(DH1||DL1,B1) u(I2)         t(1,B1,DH1||DL1)
 SMI   12 O1 +2 M1 +1     . +1  B3 +1  D3 +3 RI2 +4
 SMI    . m(M1) s4(RI2) db(D3,B1)
 SSa   12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSa    . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B1,D1) hint(l(L1),B2,D2)
+SSa    . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1) t(l(L1),B2,D2)
 SSa1  12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSa1   . dlb(D1,L1,B1) db(D2,B2)        hint(l(L1),B1,D1) hint(256,B2,D2)
+SSa1   . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1) t(256,B2,D2)
 SSb   12 O1 +2 L1 +1    L2 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    hint(l(L1),B1,D1) hint(l(L1),B2,D2)
+SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    t(l(L1),B1,D1) t(l(L1),B2,D2)
 SSc   12 O1 +2 L1 +1    I3 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)  hint(L1,B1,D1)
+SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)  t(L1,B1,D1)
 SSd   12 O1 +2 R1 +1    R3 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSd    . db(D1,B1) db(D2,B2) r(R3)
 SSe   12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
-SSe    . r(R1) r(R3) db(D2,B2) db(D4,B4) hint(hM(4),B2,D2) hint(hM(4),B4,D4)
+SSe    . r(R1) r(R3) db(D2,B2) db(D4,B4) t(hM(4),B2,D2) t(hM(4),B4,D4)
 SSe1  12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
 SSe1   . r(R1) r(R3) db(D2,B2) db(D4,B4)
 SSf   12 O1 +2 L2 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSf    . db(D1,B1) dlb(D2,L2,B2)        hint(16,B1,D1)     hint(L2,B2,D2)
+SSf    . db(D1,B1) dlb(D2,L2,B2)        t(16,B1,D1)     t(L2,B2,D2)
 SSE   12 O1 +4                 B1 +1  D1 +3  B2 +1  D2 +3
-SSE    . db(D1,B1) db(D2,B2)            hint(g.0TLENG,B2,D2)
+SSE    . db(D1,B1) db(D2,B2)            t(TL,B2,D2)
 SSF   12 O1 +2 R3 +1    O2 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSF    . db(D1,B1) db(D2,B2) r(R3)      hint(g.0TLENG,B2,D2)
+SSF    . db(D1,B1) db(D2,B2) r(R3)      t(TL,B2,D2)
 VRIa  12 O1 +2 V1 +1     . +1  I2 +4   . +1                    RXB +1 O2 +2
 VRIa   . v(V1) u(I2)
 VRIa3 12 O1 +2 V1 +1     . +1  I2 +4  M3 +1                    RXB +1 O2 +2
@@ -3694,9 +3697,8 @@ specifying:
      is "=hM(4)"...which means take the M1 value from the LM instruction
      and compute the actual length from the number of 4-byte registers loaded
      by the instruction.
-     The length computed in this way is stored in g.0TLENG and can be used
-     to compute length hints at the instruction format level (so that the
-     length applies to all instructions with that format).
+     The length computed in this way is stored in variable TL and can be used
+     at the instruction format level yet apply to this specific instruction.
 
                     .- Flag for determining extended mnemonics:
                     |    A = Arithmetic instruction
