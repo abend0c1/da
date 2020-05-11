@@ -1545,6 +1545,9 @@ saveDSECTs:
         n1 = sorted.j1
         n2 = sorted.j2
         sLabel  = g.0DSECT.sDsectName.n1
+        sType   = g.0DTYPE.sLabel
+        if sType = ''
+        then sType = 'X'
         nLength = g.0DLENG.sLabel
         d1      = g.0DDISP.sDsectName.n1
         d2      = g.0DDISP.sDsectName.n2
@@ -1553,15 +1556,15 @@ saveDSECTs:
         if nGap > 0
         then call save asm(,'DS XL'nGap)
         if nLength = 0
-        then sFormat = '0X'
+        then sFormat = '0'sType
         else do
           if nLength <= (d2 - d1)
           then do
-            sFormat = 'XL'nLength
+            sFormat = getFormat(sType,nLength)
             d1 = d1 + nLength
           end
           else do
-            sFormat = '0XL'nLength
+            sFormat = '0XL'nLength getFormat(sType,nLength)
           end
         end
         call save asm(sLabel,'DS' sFormat)
@@ -1571,11 +1574,23 @@ saveDSECTs:
   end
 return
 
+getFormat: procedure expose g.
+  arg sType,nLen                            /* sType nLen nMax             */
+  if nLen = 0 then return '0'sType          /*   A     0    4  --> 0A      */
+  nMax = g.0MAXLEN.sType
+  if nMax = '' then return sType'L'nLen     /*   C    23       --> CL23    */
+  if nLen = nMax then return sType          /*   A     4    4  --> A       */
+  if nLen < nMax then return sType'L'nLen   /*   A     3    4  --> AL3     */
+  nRem = nLen // nMax
+  if nRem > 0 then return 'XL'nLen          /*   A     7    4  --> XL7     */
+  nDup = nLen % nMax
+return nDup || sType                        /*   A     8    4  --> 2A      */
+
 asm: procedure
   arg sLabel,sOp sOperands sComment
   nLabel = max(length(sLabel),8)
   nOp    = max(length(sOp),5)
-  nOperands = max(length(sOperands),22)
+  nOperands = max(length(sOperands),23)
   sStmt = left(sLabel,nLabel) left(sOp,nOp) left(sOperands,nOperands) sComment
 return left(sStmt,71)
 
@@ -2336,6 +2351,9 @@ decodeInst: procedure expose g.
     V4 = RXB4||V4 /* Prepend high order bit to the V4 operand */
   end
   interpret 'TL =' sHint        /* 2. Get length hint from xOpCode   */
+  parse var TL TL T1 T2         /*    TL=length Tn=nTh operand type  */
+  if T1 = '.' then T1 = ''
+  if T2 = '.' then T2 = ''
   interpret 'o =' sEmitter            /* 3. Generate instruction operands  */
   sOperands = space(o,,',')           /* Put commas between operands    */
   sOperands = translate(sOperands,' ',g.0HARDBLANK) /* Soften blanks :) */
@@ -2683,7 +2701,7 @@ t: procedure expose g. /* Operand length hint */
   /* length in bytes of the field referenced by base+disp.  It always */
   /* returns '' so as not to add spurious characters to the generated */
   /* assembler instruction */
-  arg nLength,xBaseReg,xDisp
+  arg nLength,xBaseReg,xDisp,sType
   select
     when g.0CBASE.xBaseReg \= '' then do /* Base+Disp addresses CSECT */
       xBase = g.0CBASE.xBaseReg
@@ -2697,6 +2715,8 @@ t: procedure expose g. /* Operand length hint */
         then g.0CLENG.xTarget = nLength
         else g.0CLENG.xTarget = max(g.0CLENG.xTarget,nLength)
       end
+      if g.0CTYPE.xTarget = '' & sType \= ''
+      then g.0CTYPE.xTarget = sType
     end
     when g.0DBASE.xBaseReg \= '' then do /* Base+Disp addresses DSECT */
       if nLength \= ''      /* If instruction has an implicit operand length */
@@ -2704,6 +2724,8 @@ t: procedure expose g. /* Operand length hint */
       else sLabel = getDsectLabel(xDisp,xBaseReg)
       if nLength > g.0DLENG.sLabel   /* If proposed > current length */
       then g.0DLENG.sLabel = nLength /* Then use the larger length */
+      if g.0DTYPE.sLabel = '' & sType \= ''
+      then g.0DTYPE.sLabel = sType
     end
     otherwise nop                        /* No USING for this base register */
   end
@@ -3020,6 +3042,15 @@ prolog:
   g.0MASK.D = 3
   g.0MASK.E = 3
   g.0MASK.F = 4
+  /* Maximum data type lengths in bytes (else unlimited) */
+  /* ...that this disassembler handles */
+  call addType 'H',2
+  call addType 'F',4
+  call addType 'FD',8
+  call addType 'P',16
+  call addType 'Z',16
+  call addType 'A',4
+  call addType 'AD',8
   /* Compare Immediate and Branch extended mnemonic suffixes */
                                 /* Equal             */
                                 /* |Low              */
@@ -3178,6 +3209,11 @@ quietly: procedure expose g. o.
   address TSO sCommand
   g.0RC = rc
   rc = outtrap('off')
+return
+
+addType: procedure expose g.
+  arg sType,nMaxLen
+  g.0MAXLEN.sType = nMaxLen
 return
 
 addFormat: procedure expose g.
@@ -3788,7 +3824,7 @@ MER     3C   RR     A Multiply Normalized (LH<-SH)
 DER     3D   RR     A Divide Normalized (SH)
 AUR     3E   RR     A Add Unnormalized (SH)
 SUR     3F   RR     A Subtract Unnormalized (SH)
-STH     40   RXa    . Store Halfword (16) =2
+STH     40   RXa    . Store Halfword (16) =2 . H
 LA      41   RXa    . Load Address
 STC     42   RXa    . Store Character (8) =1
 IC      43   RXa    . Insert Character (8) =1
@@ -3796,28 +3832,28 @@ EX      44   RXa    . Execute
 BAL     45   RXa    . Branch And Link
 BCT     46   RXa    . Branch on Count
 BC      47   RXb    B Branch on Condition
-LH      48   RXa    . Load Halfword (32<-16) =2
-CH      49   RXa    C Compare Halfword (32<-16) =2
-AH      4A   RXa    A Add Halfword (32<-16) =2
-SH      4B   RXa    A Subtract Halfword (32<-16) =2
-MH      4C   RXa    A Multiply Halfword (32<-16) =2
+LH      48   RXa    . Load Halfword (32<-16) =2 . H
+CH      49   RXa    C Compare Halfword (32<-16) =2 . H
+AH      4A   RXa    A Add Halfword (32<-16) =2 . H
+SH      4B   RXa    A Subtract Halfword (32<-16) =2 . H
+MH      4C   RXa    A Multiply Halfword (32<-16) =2 . H
 BAS     4D   RXa    . Branch And Save
-CVD     4E   RXa    . Convert to Decimal (32) =8
-CVB     4F   RXa    . Convert to Binary (32) =8
-ST      50   RXa    . Store (32) =4
+CVD     4E   RXa    . Convert to Decimal (32) =8 . P
+CVB     4F   RXa    . Convert to Binary (32) =8 . P
+ST      50   RXa    . Store (32) =4 . F
 LAE     51   RXa    . Load Address Extended
 N       54   RXa    A And (32) =4
-CL      55   RXa    C Compare Logical (32) =4
+CL      55   RXa    C Compare Logical (32) =4 . F
 O       56   RXa    A Or (32) =4
 X       57   RXa    A Exclusive-Or (32) =4
-L       58   RXa    . Load (32) =4
-C       59   RXa    C Compare (32) =4
-A       5A   RXa    A Add (32) =4
-S       5B   RXa    A Subtract (32) =4
-M       5C   RXa    A Multiply (64<-32) =4
-D       5D   RXa    A Divide (32<-64) =4
-AL      5E   RXa    A Add Logical (32) =4
-SL      5F   RXa    A Subtract Logical (32) =4
+L       58   RXa    . Load (32) =4 . F
+C       59   RXa    C Compare (32) =4 . F
+A       5A   RXa    A Add (32) =4 . F
+S       5B   RXa    A Subtract (32) =4 . F
+M       5C   RXa    A Multiply (64<-32) =4 . F
+D       5D   RXa    A Divide (32<-64) =4 . F
+AL      5E   RXa    A Add Logical (32) =4 . F
+SL      5F   RXa    A Subtract Logical (32) =4 . F
 STD     60   RXa    . Store (Long) =8
 MXD     67   RXa    A Multiply (EH<-LH) =8
 LD      68   RXa    . Load (Long) =8
@@ -3853,7 +3889,7 @@ SRDL    8C   RSa    . Shift Right Double Logical (64)
 SLDL    8D   RSa    . Shift Left Double Logical (64)
 SRDA    8E   RSa    A Shift Right Double Arithmetic (64)
 SLDA    8F   RSa    A Shift Left Double Arithmetic (64)
-STM     90   RSA    . Store Multiple (32) =hM(4)
+STM     90   RSA    . Store Multiple (32) =hM(4) . F
 TM      91   SI0    M Test under Mask (8)
 MVI     92   SI     . Move Immediate (8) =1
 TS      93   SI1    c Test And Set (8) =1
@@ -3861,10 +3897,10 @@ NI      94   SI0    A And Immediate (8)
 CLI     95   SI     C Compare Logical Immediate (8) =1
 OI      96   SI0    A Or Immediate (8)
 XI      97   SI0    A Exclusive-Or Immediate (8)
-LM      98   RSA    . Load Multiple (32) =hM(4)
+LM      98   RSA    . Load Multiple (32) =hM(4) . F
 TRACE   99   RSA    . Trace (32)
-LAM     9A   RSA    . Load Access Multiple =hM(4)
-STAM    9B   RSA    . Store Access Multiple =hM(4)
+LAM     9A   RSA    . Load Access Multiple =hM(4) . F
+STAM    9B   RSA    . Store Access Multiple =hM(4) . F
 IIHH    A50  RIax   . Insert Immediate High High (0-15)
 IIHL    A51  RIax   . Insert Immediate High Low (16-31)
 IILH    A52  RIax   . Insert Immediate Low High (32-47)
@@ -3903,7 +3939,7 @@ STNSM   AC   SI     . Store Then And System Mask =1
 STOSM   AD   SI     . Store Then Or System Mask =1
 SIGP    AE   RSA    c Signal Processor
 MC      AF   SI     . Monitor Call
-LRA     B1   RXa    c Load Real Address (32)
+LRA     B1   RXa    c Load Real Address (32) . A
 STIDP   B202 S      . Store CPU ID =8
 SCK     B204 S      c Set Clock =8
 STCK    B205 S      c Store Clock =8
@@ -4167,8 +4203,8 @@ CEXTR   B3FC RRE    C Compare Biased Exponent (ED)
 QAXTR   B3FD RRFb4  . Quantize (ED)
 IEXTR   B3FE RRFb   . Insert Biased Exponent (ED<-64)
 RRXTR   B3FF RRFb4  . Reround (ED)
-STCTL   B6   RSA    . Store Control (32) =hM(4)
-LCTL    B7   RSA    . Load Control (32) =hM(4)
+STCTL   B6   RSA    . Store Control (32) =hM(4) . F
+LCTL    B7   RSA    . Load Control (32) =hM(4) . F
 LPGR    B900 RRE    A Load Positive (64)
 LNGR    B901 RRE    A Load Negative (64)
 LTGR    B902 RRE    A Load and Test (64)
@@ -4323,7 +4359,7 @@ SRK     B9F9 RRFa   A Subtract (32)
 ALRK    B9FA RRFa   A Add Logical (32)
 SLRK    B9FB RRFa   A Subtract Logical (32)
 MSRKC   B9FD RRFa   A Multiply Single (32)
-CS      BA   RSA    C Compare And Swap =4
+CS      BA   RSA    C Compare And Swap =4 . F
 CDS     BB   RSA    C Compare Double And Swap =8
 CLM     BD   RSb    C Compare Logical Char. under Mask (low)
 STCM    BE   RSb    . Store Characters under Mask
@@ -4382,8 +4418,8 @@ BPP     C7   SMI    . Branch Prediction Preload
 MVCOS   C80  SSF    c Move with Optional Specifications
 ECTG    C81  SSF    . Extract CPU Time =8
 CSST    C82  SSF    C Compare and Swap and Store
-LPD     C84  SSF    . Load Pair Disjoint (32)
-LPDG    C85  SSF    . Load Pair Disjoint (64)
+LPD     C84  SSF    . Load Pair Disjoint (32) =4 F F
+LPDG    C85  SSF    . Load Pair Disjoint (64) =8 FD FD
 BRCTH   CC6  RILb  R8 Branch Relative on Count High (32)
 AIH     CC8  RILa   A Add Immediate High (32)
 ALSIH   CCA  RILa   A Add Logical with Signed Immediate High (32)
@@ -4403,136 +4439,136 @@ MVCP    DA   SSd    c Move to Primary
 MVCS    DB   SSd    c Move to Secondary
 TR      DC   SSa    . Translate =l(L1)
 TRT     DD   SSa    c Translate and Test =l(L1)
-ED      DE   SSa    A Edit =l(L1)
-EDMK    DF   SSa    A Edit and MarK =l(L1)
-PKU     E1   SSf    . Pack Unicode =16
-UNPKU   E2   SSa    c Unpack Unicode =l(L1)
-LTG     E302 RXYa   A Load and Test (64) =8
-LRAG    E303 RXYa   c Load Real Address (64)
-LG      E304 RXYa   . Load (64) =8
-CVBY    E306 RXYa   . Convert to Binary (32) =8
-AG      E308 RXYa   A Add (64) =8
-SG      E309 RXYa   A Subtract (64) =8
-ALG     E30A RXYa   A Add Logical (64) =8
-SLG     E30B RXYa   A Subtract Logical (64) =8
-MSG     E30C RXYa   A Multiply Single (64) =8
-DSG     E30D RXYa   A Divide Single (64) =8
-CVBG    E30E RXYa   . Convert to Binary (64) =16
-LRVG    E30F RXYa   . Load Reversed (64) =8
-LT      E312 RXYa   A Load and Test (32) =4
-LRAY    E313 RXYa   c Load Real Address (32)
-LGF     E314 RXYa   . Load (64<-32) =4
-LGH     E315 RXYa   . Load Halfword (64<-16) =2
-LLGF    E316 RXYa   . Load Logical (64<-32) =4
-LLGT    E317 RXYa   . Load Logical 31-Bits (64<-31) =4
-AGF     E318 RXYa   A Add (64<-32) =4
-SGF     E319 RXYa   A Subtract (64<-32) =4
-ALGF    E31A RXYa   A Add Logical (64<-32) =4
-SLGF    E31B RXYa   A Subtract Logical (64<-32) =4
-MSGF    E31C RXYa   A Multiply Single (64<-32) =4
-DSGF    E31D RXYa   A Divide Single (64<-32) =4
+ED      DE   SSa    A Edit =l(L1) . P
+EDMK    DF   SSa    A Edit and MarK =l(L1) . P
+PKU     E1   SSf    . Pack Unicode =16 . P
+UNPKU   E2   SSa    c Unpack Unicode =l(L1) . P
+LTG     E302 RXYa   A Load and Test (64) =8 . FD
+LRAG    E303 RXYa   c Load Real Address (64) =8 . AD
+LG      E304 RXYa   . Load (64) =8 . AD
+CVBY    E306 RXYa   . Convert to Binary (32) =8 . FD
+AG      E308 RXYa   A Add (64) =8 . FD
+SG      E309 RXYa   A Subtract (64) =8 . FD
+ALG     E30A RXYa   A Add Logical (64) =8 . FD
+SLG     E30B RXYa   A Subtract Logical (64) =8 . FD
+MSG     E30C RXYa   A Multiply Single (64) =8 . FD
+DSG     E30D RXYa   A Divide Single (64) =8 . FD
+CVBG    E30E RXYa   . Convert to Binary (64) =16 . P
+LRVG    E30F RXYa   . Load Reversed (64) =8 . FD
+LT      E312 RXYa   A Load and Test (32) =4 . F
+LRAY    E313 RXYa   c Load Real Address (32) =4 . A
+LGF     E314 RXYa   . Load (64<-32) =4 . F
+LGH     E315 RXYa   . Load Halfword (64<-16) =2 . H
+LLGF    E316 RXYa   . Load Logical (64<-32) =4 . F
+LLGT    E317 RXYa   . Load Logical 31-Bits (64<-31) =4 . F
+AGF     E318 RXYa   A Add (64<-32) =4 . F
+SGF     E319 RXYa   A Subtract (64<-32) =4 . F
+ALGF    E31A RXYa   A Add Logical (64<-32) =4 . F
+SLGF    E31B RXYa   A Subtract Logical (64<-32) =4 . F
+MSGF    E31C RXYa   A Multiply Single (64<-32) =4 . F
+DSGF    E31D RXYa   A Divide Single (64<-32) =4 . F
 LRV     E31E RXYa   . Load Reversed (32) =4
 LRVH    E31F RXYa   . Load Reversed (16) =2
-CG      E320 RXYa   C Compare (64) =8
-CLG     E321 RXYa   C Compare Logical (64) =8
-STG     E324 RXYa   . Store (64) =8
+CG      E320 RXYa   C Compare (64) =8 . FD
+CLG     E321 RXYa   C Compare Logical (64) =8 . FD
+STG     E324 RXYa   . Store (64) =8 . FD
 NTSTG   E325 RXYa   . NonTransactional Store (64)
-CVDY    E326 RXYa   . Convert to Decimal (32) =8
-LZRG    E32A RXYa   . Load and Zero Rightmost Byte (64) =8
-CVDG    E32E RXYa   . Convert to Decimal (64) =16
-STRVG   E32F RXYa   . Store Reversed (64) =8
-CGF     E330 RXYa   C Compare (64<-32) =4
-CLGF    E331 RXYa   C Compare Logical (64<-32) =4
-LTGF    E332 RXYa   A Load and Test (64<-32) =4
-CGH     E334 RXYa   C Compare Halfword (64<-16) =2
+CVDY    E326 RXYa   . Convert to Decimal (32) =8 . P
+LZRG    E32A RXYa   . Load and Zero Rightmost Byte (64) =8 . FD
+CVDG    E32E RXYa   . Convert to Decimal (64) =16 . P
+STRVG   E32F RXYa   . Store Reversed (64) =8 . FD
+CGF     E330 RXYa   C Compare (64<-32) =4 . F
+CLGF    E331 RXYa   C Compare Logical (64<-32) =4 . F
+LTGF    E332 RXYa   A Load and Test (64<-32) =4 . F
+CGH     E334 RXYa   C Compare Halfword (64<-16) =2 . H
 PFD     E336 RXYb   . PreFetch Data
-AGH     E338 RXYa   A Add Halfword (64<-16) =2
-SGH     E339 RXYa   A Subtract Halfword (64<-16) =2
-LLZRGF  E33A RXYa   . Load Logical and Zero Rightmost Byte (64<-32) =4
-LZRF    E33B RXYa   . Load and Zero Rightmost Byte (32) =4
-MGH     E33C RXYa   A Multiply Halfword (64<-16) =2
-STRV    E33E RXYa   . Store Reversed (32) =4
-STRVH   E33F RXYa   . Store Reversed (16) =2
+AGH     E338 RXYa   A Add Halfword (64<-16) =2 . H
+SGH     E339 RXYa   A Subtract Halfword (64<-16) =2 . H
+LLZRGF  E33A RXYa   . Load Logical and Zero Rightmost Byte (64<-32) =4 . F
+LZRF    E33B RXYa   . Load and Zero Rightmost Byte (32) =4 . F
+MGH     E33C RXYa   A Multiply Halfword (64<-16) =2 . H
+STRV    E33E RXYa   . Store Reversed (32) =4 . F
+STRVH   E33F RXYa   . Store Reversed (16) =2 . H
 BCTG    E346 RXYa   . Branch on Count (64) =8
 BIC     E347 RXYb   . Branch Indirect on Condition
-LLGFSG  E348 RXYa   . Load Logical and Shift Guarded (64<-32) =4
+LLGFSG  E348 RXYa   . Load Logical and Shift Guarded (64<-32) =4 . F
 STGSC   E349 RXYa   . Store Guarded Storage Controls
-LGG     E34C RXYa   . Load Guarded (64) =8
+LGG     E34C RXYa   . Load Guarded (64) =8 . FD
 LGSC    E34D RXYa   . Load Guarded Storage Controls
-STY     E350 RXYa   . Store (32) =4
-MSY     E351 RXYa   A Multiply Single (32) =4
-MSC     E353 RXYa   A Multiply single (32) =4
+STY     E350 RXYa   . Store (32) =4 . F
+MSY     E351 RXYa   A Multiply Single (32) =4 . F
+MSC     E353 RXYa   A Multiply single (32) =4 . F
 NY      E354 RXYa   A And (32) =4
-CLY     E355 RXYa   C Compare Logical (32) =4
+CLY     E355 RXYa   C Compare Logical (32) =4 . F
 OY      E356 RXYa   A Or (32) =4
-XY      E357 RXYa   A Exclusive-Or (32) =4
-LY      E358 RXYa   . Load (32) =4
-CY      E359 RXYa   C Compare (32) =4
-AY      E35A RXYa   A Add (32) =4
-SY      E35B RXYa   A Subtract (32) =4
-MFY     E35C RXYa   A Multiply (64<-32) =4
-ALY     E35E RXYa   A Add Logical (32) =4
-SLY     E35F RXYa   A Subtract Logical (32) =4
-STHY    E370 RXYa   . Store Halfword (16) =2
+XY      E357 RXYa   A Exclusive-Or (32) =4 . F
+LY      E358 RXYa   . Load (32) =4 . F
+CY      E359 RXYa   C Compare (32) =4 . F
+AY      E35A RXYa   A Add (32) =4 . F
+SY      E35B RXYa   A Subtract (32) =4 . F
+MFY     E35C RXYa   A Multiply (64<-32) =4 . F
+ALY     E35E RXYa   A Add Logical (32) =4 . F
+SLY     E35F RXYa   A Subtract Logical (32) =4 . F
+STHY    E370 RXYa   . Store Halfword (16) =2 . H
 LAY     E371 RXYa   . Load Address
 STCY    E372 RXYa   . Store Character =1
 ICY     E373 RXYa   . Insert Character =1
 LAEY    E375 RXYa   . Load Address Extended
 LB      E376 RXYa   . Load Byte (32<-8) =1
 LGB     E377 RXYa   . Load Byte (64<-8) =1
-LHY     E378 RXYa   . Load Halfword (32<-16) =2
-CHY     E379 RXYa   C Compare Halfword (32<-16) =2
-AHY     E37A RXYa   A Add Halfword (32<-16) =2
-SHY     E37B RXYa   A Subtract Halfword (32<-16) =2
-MHY     E37C RXYa   A Multiply Halfword (32<-16) =2
+LHY     E378 RXYa   . Load Halfword (32<-16) =2 . H
+CHY     E379 RXYa   C Compare Halfword (32<-16) =2 . H
+AHY     E37A RXYa   A Add Halfword (32<-16) =2 . H
+SHY     E37B RXYa   A Subtract Halfword (32<-16) =2 . H
+MHY     E37C RXYa   A Multiply Halfword (32<-16) =2 . H
 NG      E380 RXYa   A And (64) =8
 OG      E381 RXYa   A Or (64) =8
 XG      E382 RXYa   A Exclusive-Or (64) =8
-MSGC    E383 RXYa   A Multiply Single (64) =8
-MG      E384 RXYa   A Multiply (128<-64) =8
-LGAT    E385 RXYa   . Load and Trap (64) =8
-MLG     E386 RXYa   A Multiply Logical (128<-64) =8
-DLG     E387 RXYa   A Divide Logical (64<-128) =8
-ALCG    E388 RXYa   A Add Logical with Carry (64) =8
-SLBG    E389 RXYa   A Subtract Logical with Borrow (64) =8
+MSGC    E383 RXYa   A Multiply Single (64) =8 . FD
+MG      E384 RXYa   A Multiply (128<-64) =8 . FD
+LGAT    E385 RXYa   . Load and Trap (64) =8 . FD
+MLG     E386 RXYa   A Multiply Logical (128<-64) =8 . FD
+DLG     E387 RXYa   A Divide Logical (64<-128) =8 . FD
+ALCG    E388 RXYa   A Add Logical with Carry (64) =8 . FD
+SLBG    E389 RXYa   A Subtract Logical with Borrow (64) =8 . FD
 STPQ    E38E RXYa   . Store Pair to Quadword =16
 LPQ     E38F RXYa   . Load Pair from Quadword (64+64<-128) =16
 LLGC    E390 RXYa   . Load Logical Character (64<-8) =1
 LLGH    E391 RXYa   . Load Logical Halfword (64<-16) =2
 LLC     E394 RXYa   . Load Logical Character (32<-8) =1
 LLH     E395 RXYa   . Load Logical Halfword (32<-16) =2
-ML      E396 RXYa   A Multiply Logical (64<-32) =4
-DL      E397 RXYa   A Divide Logical (32<-64) =4
-ALC     E398 RXYa   A Add Logical with Carry (32) =4
-SLB     E399 RXYa   A Subtract Logical with Borrow (32) =4
-LLGTAT  E39C RXYa   . Load Logical 31-Bits and Trap (64<-31) =4
-LLGFAT  E39D RXYa   . Load Logical and Trap (64<-32) =4
-LAT     E39F RXYa   . Load and Trap (32L<-32) =4
+ML      E396 RXYa   A Multiply Logical (64<-32) =4 . F
+DL      E397 RXYa   A Divide Logical (32<-64) =4 . F
+ALC     E398 RXYa   A Add Logical with Carry (32) =4 . F
+SLB     E399 RXYa   A Subtract Logical with Borrow (32) =4 . F
+LLGTAT  E39C RXYa   . Load Logical 31-Bits and Trap (64<-31) =4 . F
+LLGFAT  E39D RXYa   . Load Logical and Trap (64<-32) =4 . F
+LAT     E39F RXYa   . Load and Trap (32L<-32) =4 . F
 LBH     E3C0 RXYa   . Load Byte High (32<-8) =1
 LLCH    E3C2 RXYa   . Load Logical Character High (32<-8) =1
 STCH    E3C3 RXYa   . Store Character High (8) =1
-LHH     E3C4 RXYa   . Load Halfword High (32<-16) =2
-LLHH    E3C6 RXYa   . Load Logical Halfword High (32<-16) =2
-STHH    E3C7 RXYa   . Store Halfword High (16) =2
-LFHAT   E3C8 RXYa   . Load High and Trap (32H<-16) =2
-LFH     E3CA RXYa   . Load High (32) =4
-STFH    E3CB RXYa   . Store High (32) =4
-CHF     E3CD RXYa   C Compare High (32) =4
-CLHF    E3CF RXYa   C Compare Logical High (32) =4
+LHH     E3C4 RXYa   . Load Halfword High (32<-16) =2 . H
+LLHH    E3C6 RXYa   . Load Logical Halfword High (32<-16) =2 . H
+STHH    E3C7 RXYa   . Store Halfword High (16) =2 . H
+LFHAT   E3C8 RXYa   . Load High and Trap (32H<-16) =2 . H
+LFH     E3CA RXYa   . Load High (32) =4 . F
+STFH    E3CB RXYa   . Store High (32) =4 . F
+CHF     E3CD RXYa   C Compare High (32) =4 . F
+CLHF    E3CF RXYa   C Compare Logical High (32) =4 . F
 LASP    E500 SSE    c Load Address Space Parameters
 TPROT   E501 SSE    c Test Protection
 STRAG   E502 SSE    . Store Real Address =8
 MVCSK   E50E SSE    . Move with Source Key
 MVCDK   E50F SSE    . Move with Destination Key
-MVHHI   E544 SIL    . Move (16<-16) =2
-MVGHI   E548 SIL    . Move (64<-16) =8
-MVHI    E54C SIL    . Move (32<-16) =4
-CHHSI   E554 SIL    C Compare Halfword Immediate (16<-16)
-CLHHSI  E555 SIL    C Compare Logical Immediate (16<-16)
-CGHSI   E558 SIL    C Compare Halfword Immediate (64<-16)
-CLGHSI  E559 SIL    C Compare Logical Immediate (64<-16)
-CHSI    E55C SIL    C Compare Halfword Immediate (32<-16)
-CLFHSI  E55D SIL    C Compare Logical Immediate (32<-16)
+MVHHI   E544 SIL    . Move (16<-16) =2 H
+MVGHI   E548 SIL    . Move (64<-16) =8 F
+MVHI    E54C SIL    . Move (32<-16) =4 FD
+CHHSI   E554 SIL    C Compare Halfword Immediate (16<-16) =2 H
+CLHHSI  E555 SIL    C Compare Logical Immediate (16<-16) =2 H
+CGHSI   E558 SIL    C Compare Halfword Immediate (64<-16) =8 FD
+CLGHSI  E559 SIL    C Compare Logical Immediate (64<-16) =8 FD
+CHSI    E55C SIL    C Compare Halfword Immediate (32<-16) =4 F
+CLFHSI  E55D SIL    C Compare Logical Immediate (32<-16) =4 F
 TBEGIN  E560 SIL    c Transaction Begin (noncontrained)
 TBEGINC E561 SIL    c Transaction Begin (constrained)
 VPKZ    E634 VSI    . Vector Pack Zoned
@@ -4707,30 +4743,30 @@ VMXL    E7FD VRRc4  . Vector Maximum Logical
 VMN     E7FE VRRc4  . Vector Minimum
 VMX     E7FF VRRc4  . Vector Maximum
 MVCIN   E8   SSa    . Move Inverse =l(L1)
-PKA     E9   SSf    . Pack ASCII =16
-UNPKA   EA   SSa    c UnPacK ASCII =l(L1)
-LMG     EB04 RSYa   . Load Multiple (64)  =hM(8)
+PKA     E9   SSf    . Pack ASCII =16 P
+UNPKA   EA   SSa    c UnPacK ASCII =l(L1) P
+LMG     EB04 RSYa   . Load Multiple (64)  =hM(8) . FD
 SRAG    EB0A RSYas  A Shift Right Single (64)
 SLAG    EB0B RSYas  A Shift Left Single (64)
 SRLG    EB0C RSYas  . Shift Right Single Logical (64)
 SLLG    EB0D RSYas  . Shift Left Single Logical (64)
 TRACG   EB0F RSYa   . Trace (64)
-CSY     EB14 RSYa   C Compare and Swap (32) =4
+CSY     EB14 RSYa   C Compare and Swap (32) =4 . F
 RLLG    EB1C RSYas  . Rotate Left Single Logical (64)
 RLL     EB1D RSYas  . Rotate Left single Logical
 CLMH    EB20 RSYbm  C Compare Logical Char. under Mask (high)
 CLMY    EB21 RSYbm  C Compare Logical Char. under Mask (low)
-CLT     EB23 RSYb   c Compare Logical and Trap (32) =4
-STMG    EB24 RSYa   . Store Multiple (64) =hM(8)
-STCTG   EB25 RSYa   . Store Control (64) =hM(8)
-STMH    EB26 RSYa   . Store Multiple High (32) =hM(4)
-CLGT    EB2B RSYb   c Compare Logical and Trap (64) =8
+CLT     EB23 RSYb   c Compare Logical and Trap (32) =4 . F
+STMG    EB24 RSYa   . Store Multiple (64) =hM(8) . FD
+STCTG   EB25 RSYa   . Store Control (64) =hM(8) . FD
+STMH    EB26 RSYa   . Store Multiple High (32) =hM(4) . F
+CLGT    EB2B RSYb   c Compare Logical and Trap (64) =8 . FD
 STCMH   EB2C RSYbm  . Store Characters under Mask (high)
 STCMY   EB2D RSYbm  . Store Characters under Mask (low)
-LCTLG   EB2F RSYa   . Load Control (64) =hM(8)
-CSG     EB30 RSYa   C Compare and Swap (64) =8
-CDSY    EB31 RSYa   C Compare Double and Swap (32)
-CDSG    EB3E RSYa   C Compare Double and Swap (64)
+LCTLG   EB2F RSYa   . Load Control (64) =hM(8) . FD
+CSG     EB30 RSYa   C Compare and Swap (64) =8 . FD
+CDSY    EB31 RSYa   C Compare Double and Swap (32) =4 . F
+CDSG    EB3E RSYa   C Compare Double and Swap (64) =8 . FD
 BXHG    EB44 RSYa   . Branch on Index High (64)
 BXLEG   EB45 RSYa   . Branch on Index Low or Equal (64)
 ECAG    EB4C RSYa   . Extract CPU Attribute
@@ -4740,40 +4776,40 @@ NIY     EB54 SIYx   A And Immediate
 CLIY    EB55 SIYu   C Compare Logical Immediate
 OIY     EB56 SIYx   A Or Immediate
 XIY     EB57 SIYx   A Exclusive-Or Immediate
-ASI     EB6A SIY    A Add Immediate (32<-8) =4
-ALSI    EB6E SIY    A Add Logical with Signed Immediate (32<-8) =4
-AGSI    EB7A SIY    A Add Immediate (64<-8) =8
-ALGSI   EB7E SIY    A Add Logical with Signed Immediate (64<-8) =8
+ASI     EB6A SIY    A Add Immediate (32<-8) =4 F
+ALSI    EB6E SIY    A Add Logical with Signed Immediate (32<-8) =4 F
+AGSI    EB7A SIY    A Add Immediate (64<-8) =8 FD
+ALGSI   EB7E SIY    A Add Logical with Signed Immediate (64<-8) =8 FD
 ICMH    EB80 RSYbm  . Insert Characters under Mask (high)
 ICMY    EB81 RSYbm  . Insert Characters under Mask (low)
 MVCLU   EB8E RSYa   c Move Long Unicode
 CLCLU   EB8F RSYa   C Compare Logical Long Unicode
-STMY    EB90 RSYa   . Store Multiple (32)
-LMH     EB96 RSYa   . Load Multiple High (32)
-LMY     EB98 RSYa   . Load Multiple (32)
-LAMY    EB9A RSYa   . Load Access Multiple
-STAMY   EB9B RSYa   . Store Access Multiple
-TP      EBC0 RSLa   c Test Decimal =l(L1)
+STMY    EB90 RSYa   . Store Multiple (32) =hM(4) . F
+LMH     EB96 RSYa   . Load Multiple High (32) =hM(4) . F
+LMY     EB98 RSYa   . Load Multiple (32) =hM(4) . F
+LAMY    EB9A RSYa   . Load Access Multiple =hM(4) . F
+STAMY   EB9B RSYa   . Store Access Multiple =hM(4) . F
+TP      EBC0 RSLa   c Test Decimal =l(L1) P
 SRAK    EBDC RSYas  A Shift Right Single (32)
 SLAK    EBDD RSYas  A Shift Left Single (32)
 SRLK    EBDE RSYas  . Shift Right Single Logical (32)
 SLLK    EBDF RSYas  . Shift Left Single Logical (32)
-LOCFH   EBE0 RSYb   O Load High On Condition (32) =4
-STOCFH  EBE1 RSYb   O Store High On Condition (32) =4
-LOCG    EBE2 RSYb   O Load On Condition (64) =8
-STOCG   EBE3 RSYb   O Store On Condition (64) =8
-LANG    EBE4 RSYa   . Load and And (64)
-LAOG    EBE6 RSYa   A Load and Or (64)
-LAXG    EBE7 RSYa   A Load and Exclusive-Or (64)
-LAAG    EBE8 RSYa   A Load and Add (64)
-LAALG   EBEA RSYa   A Load and Add Logical (64)
-LOC     EBF2 RSYb   O Load On Condition (32) =4
-STOC    EBF3 RSYb   O Store On Condition (32) =4
-LAN     EBF4 RSYa   . Load and And (32)
-LAO     EBF6 RSYa   A Load and Or (32)
-LAX     EBF7 RSYa   A Load and Exclusive-Or (32)
-LAA     EBF8 RSYa   A Load and Add (32)
-LAAL    EBFA RSYa   A Load and Add Logical (32)
+LOCFH   EBE0 RSYb   O Load High On Condition (32) =4 . F
+STOCFH  EBE1 RSYb   O Store High On Condition (32) =4 . F
+LOCG    EBE2 RSYb   O Load On Condition (64) =8 . FD
+STOCG   EBE3 RSYb   O Store On Condition (64) =8 . FD
+LANG    EBE4 RSYa   . Load and And (64) =8
+LAOG    EBE6 RSYa   A Load and Or (64) =8
+LAXG    EBE7 RSYa   A Load and Exclusive-Or (64) =8
+LAAG    EBE8 RSYa   A Load and Add (64) =8 . FD
+LAALG   EBEA RSYa   A Load and Add Logical (64) =8 . FD
+LOC     EBF2 RSYb   O Load On Condition (32) =4 . F
+STOC    EBF3 RSYb   O Store On Condition (32) =4 . F
+LAN     EBF4 RSYa   . Load and And (32) =4
+LAO     EBF6 RSYa   A Load and Or (32) =4
+LAX     EBF7 RSYa   A Load and Exclusive-Or (32) =4
+LAA     EBF8 RSYa   A Load and Add (32) =4 . F
+LAAL    EBFA RSYa   A Load and Add Logical (32) =4 . F
 LOCHI   EC42 RIEg   O Load Halfword Immediate On Condition (32<-16)
 JXHG    EC44 RIEe  JX Branch Relative on Index High (64)
 JXLEG   EC45 RIEe  JX Branch Relative on Index Low or Equal (64)
@@ -4865,27 +4901,27 @@ TDGXT   ED59 RXE    c Test Data Group (ED)
 LEY     ED64 RXYa   . Load (Short) =4
 LDY     ED65 RXYa   . Load (Long) =8
 STEY    ED66 RXYa   . Store (Short) =4
-STDY    ED67 RXYa   . Store (Long) =8
-CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2)
-CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2)
-CDZT    EDAA RSLb   . Convert from Zoned (to LD) =l(L2)
-CXZT    EDAB RSLb   . Convert from Zoned (to ED) =l(L2)
-CPDT    EDAC RSLb   A Convert to Packed (from LD) =l(L2)
-CPXT    EDAD RSLb   A Convert to Packed (from ED) =l(L2)
-CDPT    EDAE RSLb   . Convert from Packed (to LD) =l(L2)
-CXPT    EDAF RSLb   . Convert from Packed (to ED) =l(L2)
+STDY    ED67 RXYa   . Store (Long) =8 
+CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2) . C
+CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2) . C
+CDZT    EDAA RSLb   . Convert from Zoned (to LD) =l(L2) . C
+CXZT    EDAB RSLb   . Convert from Zoned (to ED) =l(L2) . C
+CPDT    EDAC RSLb   A Convert to Packed (from LD) =l(L2) . P
+CPXT    EDAD RSLb   A Convert to Packed (from ED) =l(L2) . P
+CDPT    EDAE RSLb   . Convert from Packed (to LD) =l(L2) . P
+CXPT    EDAF RSLb   . Convert from Packed (to ED) =l(L2) . P
 PLO     EE   SSe1   c Perform Locked Operation
-LMD     EF   SSe    . Load Multiple Disjoint (64<-32+32)
-SRP     F0   SSc    A Shift and Round Decimal =l(L1)
+LMD     EF   SSe    . Load Multiple Disjoint (64<-32+32) =hM(4) F F
+SRP     F0   SSc    A Shift and Round Decimal =l(L1) P
 MVO     F1   SSb    . Move with Offset =l(L1)
-PACK    F2   SSb    . Pack =l(L1)
-UNPK    F3   SSb    c Unpack =l(L1)
-ZAP     F8   SSb    A Zero and Add =l(L1)
-CP      F9   SSb    C Compare Decimal =l(L1)
-AP      FA   SSb    A Add Decimal =l(L1)
-SP      FB   SSb    A Subtract Decimal =l(L1)
-MP      FC   SSb    A Multiply Decimal =l(L1)
-DP      FD   SSb    A Divide Decimal =l(L1)
+PACK    F2   SSb    . Pack             =l(L1) P
+UNPK    F3   SSb    c Unpack           =l(L1) . P
+ZAP     F8   SSb    A Zero and Add     =l(L1) P P
+CP      F9   SSb    C Compare Decimal  =l(L1) P P
+AP      FA   SSb    A Add Decimal      =l(L1) P P
+SP      FB   SSb    A Subtract Decimal =l(L1) P P
+MP      FC   SSb    A Multiply Decimal =l(L1) P P
+DP      FD   SSb    A Divide Decimal   =l(L1) P P
 END-INSTRUCTION-DEFINITIONS
 
 
