@@ -1119,15 +1119,28 @@ nextLoc: procedure expose g.
 return
 
 generateTestBed: procedure expose g.
-  call emit '*PROCESS MACHINE(z14),FLAG(8)'
+  call emit '*PROCESS MACHINE(z15),FLAG(8)'
+  /* Hack to workaround HLASM refusing to assemble DIAG/PGIN/PGOUT */
+  call emit '         MACRO'
+  call emit '         DIAG'
+  call emit "         DC    X'83000000'"
+  call emit '         MEND'
+  call emit '         MACRO'
+  call emit '         PGIN'
+  call emit "         DC    X'B22E0000'"
+  call emit '         MEND'
+  call emit '         MACRO'
+  call emit '         PGOUT'
+  call emit "         DC    X'B22F0000'"
+  call emit '         MEND'
   call emit '         START'
+  call emit '         USING *,R0,R1'
   do i = 1 while sourceline(i) <> 'BEGIN-INSTRUCTION-DEFINITIONS'
   end
   do i = i+3 while sourceline(i) <> 'END-INSTRUCTION-DEFINITIONS'
     sLine = sourceline(i)
     parse var sLine sMnemonic xOpCode sFormat sFlag sDesc '='sHint
-    if sMnemonic <> 'DIAG'
-    then call genInst xOpCode,sMnemonic,sFormat,sFlag,sDesc
+    call genInst xOpCode,sMnemonic,sFormat,sDesc
   end
   call emit '*'
   call emit '* General purpose register equates'
@@ -3291,7 +3304,8 @@ addRot: procedure expose g.
 return
 
 genInst: procedure expose g.
-  parse arg xOpCode,sMnemonic,sFormat,sFlag,sDesc
+  parse arg xOpCode,sMnemonic,sFormat,sDesc
+  nLen      = g.0LENG.sFormat / 2         /* Instruction length     */
   /* Generate test harness instruction */
   parse value '' with ,                   /* Clear operand fields:  */
                       B1 B2 B3 B4,        /* Base register          */
@@ -3323,6 +3337,10 @@ genInst: procedure expose g.
       R1 = 2
       R2 = 2
     end
+    when sMnemonic = 'KDSA' then do
+      R1 = 2
+      R2 = 4
+    end
     when wordpos(sMnemonic,'PKU') > 0 then do
       L2 = 1
     end
@@ -3337,19 +3355,24 @@ genInst: procedure expose g.
       R1 = 1
       R2 = 2
     end
+    when sMnemonic = 'DFLTCC' then do
+      R1 = 2
+      R2 = 4
+      R3 = 6
+    end
     otherwise nop
   end
   interpret 'o =' g.0EMIT.sFormat     /* Generate instruction operands  */
   sOperands = space(o,,',')
   nMnemonic = max(length(sMnemonic),5)
-  xLoc = g.0XLOC
-  sLabel = getLabel(xLoc)
+  sLabel = getLabel(g.0XLOC)
   sInst = left(sMnemonic,nMnemonic) sOperands
   nInst = max(length(sInst),29)
   sStmt = left(sLabel,8),
           left(sInst,nInst),
           sDesc
   call emit sStmt
+  call nextLoc +nLen
 return
 
 addSVC: procedure expose g.
