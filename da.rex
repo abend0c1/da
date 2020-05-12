@@ -4491,7 +4491,7 @@ ALSIH   CCA  RILa   A Add Logical with Signed Immediate High (32)
 ALSIHN  CCB  RILa   A Add Logical with Signed Immediate High (32)
 CIH     CCD  RILa   C Compare Immediate High (32)
 CLIH    CCF  RILa   C Compare Logical Immediate High (32)
-TRTR    D0   RILa   c Translate and Test Reverse
+TRTR    D0   SSa    c Translate and Test Reverse
 MVN     D1   SSa    . Move Numerics =l(L1)
 MVC     D2   SSa    . Move Character =l(L1)
 MVZ     D3   SSa    . Move Zones =l(L1)
