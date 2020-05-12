@@ -4491,7 +4491,7 @@ ALSIH   CCA  RILa   A Add Logical with Signed Immediate High (32)
 ALSIHN  CCB  RILa   A Add Logical with Signed Immediate High (32)
 CIH     CCD  RILa   C Compare Immediate High (32)
 CLIH    CCF  RILa   C Compare Logical Immediate High (32)
-TRTR    D0   SSa    c Translate and Test Reverse
+TRTR    D0   SSa1   c Translate and Test Reverse
 MVN     D1   SSa    . Move Numerics =l(L1)
 MVC     D2   SSa    . Move Character =l(L1)
 MVZ     D3   SSa    . Move Zones =l(L1)
@@ -4502,8 +4502,8 @@ XC      D7   SSa    A Exclusive-Or Character =l(L1)
 MVCK    D9   SSd    c Move with Key
 MVCP    DA   SSd    c Move to Primary
 MVCS    DB   SSd    c Move to Secondary
-TR      DC   SSa    . Translate =l(L1)
-TRT     DD   SSa    c Translate and Test =l(L1)
+TR      DC   SSa1   . Translate =l(L1)
+TRT     DD   SSa1   c Translate and Test =l(L1)
 ED      DE   SSa    A Edit =l(L1) . P
 EDMK    DF   SSa    A Edit and MarK =l(L1) . P
 PKU     E1   SSf    . Pack Unicode =16 . P
