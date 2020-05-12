@@ -569,6 +569,12 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200511 AA  Major overhaul for version 2.0.           **
+**                         Reworked the way that opcodes are deter-  **
+**                         mined.                                    **
+**                         Applied storage formats to instruction    **
+**                         operands instead of treating them all as  **
+**                         type X.                                   **
 **            20200508 AA  Renamed the t() function to t() to        **
 **                         save space in the definition data.        **
 **            20200507 AA  Added onSyntax trap to help identify the  **
@@ -2375,8 +2381,9 @@ decodeInst: procedure expose g.
   sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(TL,3)
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
-  if pos(sFlag,'ACcM') > 0
+  if inSet(sFlag,'A C C8 c M')
   then g.0CC = sFlag /* Instruction type that sets condition code       */
+
   select
     when sMnemonic = 'L' & X2=0 & B2=0 & D2 = '010' then do
       sDesc = sDesc '-> CVT'
@@ -2425,29 +2432,32 @@ decodeInst: procedure expose g.
       sTarget = getLabelRel(RI2)
       call saveStmt sMnemonic,r(R1)','sTarget,sDesc,sOverlay
     end
-    when sFlag = 'R8' then do         /* Relative 8-nibble offset       */
+    when inSet(sFlag,'R8 C8') then do /* Relative 8-nibble offset       */
       sTarget = getLabelRel(RI2)
       call saveStmt sMnemonic,r(R1)','sTarget,sDesc,sOverlay
     end
-    when sFlag = 'JX' then do         /* Jump on index                  */
-      sTarget = getLabelRel(RI2)
-      call saveStmt sMnemonic,r(R1)','r(R3)','sTarget,sDesc,sOverlay
-    end
     when sFlag = 'CJ' then do         /* Compare and Jump               */
-      sExt = g.0EXTC.M3     /* Convert mask to extended mnemonic suffix */
+      select
+        when sFormat = 'RIEb'  then sTarget = getLabelRel(RI4)
+        when sFormat = 'RIEc'  then sTarget = getLabelRel(RI4)
+        when sFormat = 'RIS'   then sTarget = getLabelRel(I2)
+        when sFormat = 'RRS'   then sTarget = db(D4,B4)
+        otherwise sTarget = ''
+      end
+      sExt = g.0EXTC.M3 /* Convert mask to extended mnemonic suffix     */
       if sExt <> ''    /* If an extended mnemonic exists for this inst  */
       then do          /* Then rebuild operands without the M3 mask     */
-        select         /* These are the only Compare and Jump formats:  */
-          when sFormat = 'RIEb'  then o = r(R1) r(R2) getLabelRel(RI4)
-          when sFormat = 'RIEc'  then o = r(R1) u(I2) getLabelRel(RI4)
-          when sFormat = 'RIS'   then o = r(R1) r(R2) getLabelRel(I2)
-          when sFormat = 'RRS'   then o = r(R1) r(R2) db(D4,B4)
-          otherwise nop
-        end
-        sMnemonic = sMnemonic||sExt
-        call saveStmt sMnemonic,space(o,,','),sDesc,sOverlay
+        if sFormat = 'RIEc'  
+        then o = r(R1) u(I2) sTarget
+        else o = r(R1) r(R2) sTarget
       end
-      else call saveStmt sMnemonic,sOperands,sDesc,sOverlay
+      else do
+        if sFormat = 'RIEc'  
+        then o = r(R1) u(I2) m(M3) sTarget
+        else o = r(R1) r(R2) m(M3) sTarget
+      end
+      sMnemonic = sMnemonic||sExt
+      call saveStmt sMnemonic,space(o,,','),sDesc,sOverlay
     end
     when sFlag = 'O' then do          /* Load/Store on Condition        */
       sExt = g.0EXTO.M3 /* Convert mask to extended mnemonic suffix     */
@@ -2768,25 +2778,37 @@ r: procedure   /* 1-nibble register R0 to R15 */
   arg xData .
 return 'R'x2d(xData)
 
-s2: procedure  /* Signed 8-bit integer */
+r3: procedure expose g.   /* Relative 12-bit signed offset (3 nibbles) */
+  arg xData .
+return getLabelRel(xData)
+
+r4: procedure expose g.   /* Relative 16-bit signed offset (4 nibbles) */
+  arg xData .
+return getLabelRel(xData)
+
+r6: procedure expose g.   /* Relative 24-bit signed offset (6 nibbles) */
+  arg xData .
+return getLabelRel(xData)
+
+r8: procedure expose g.   /* Relative 32-bit signed offset (8 nibbles) */
+  arg xData .
+return getLabelRel(xData)
+
+s2: procedure  /* Signed 8-bit integer (2 nibbles) */
   arg xData .
 return x2d(xData,2)
 
-s3: procedure  /* Signed 12-bit integer */
+s3: procedure  /* Signed 12-bit integer (3 nibbles) */
   arg xData .
-return x2d(xData,2)
+return x2d(xData,3)
 
-s4: procedure  /* Signed 32-bit integer */
+s4: procedure  /* Signed 32-bit integer (4 nibbles) */
   arg xData .
 return x2d(xData,4)
 
-s5: procedure expose g.  /* Signed 20-bit integer */
+s5: procedure expose g.  /* Signed 20-bit integer (5 nibbles) */
   arg xData .
 return x2d(xData,5)
-
-s8: procedure  /* Signed 64-bit integer */
-  arg xData .
-return x2d(xData,8)
 
 u: procedure expose g.  /* Unsigned integer */
   arg xData .
@@ -3252,7 +3274,7 @@ addFormat: procedure expose g.
         when pos('O1 +4',sParseTemplate) > 0 then nOpCodeType = 2
         when pos('O2 +1',sParseTemplate) > 0 then nOpCodeType = 3
         when pos('O2 +2',sParseTemplate) > 0 then nOpCodeType = 4
-        othrewise nOpCodeType = 1
+        otherwise nOpCodeType = 1
       end
       g.0OPCD.sFormat = nOpCodeType
     end
@@ -3536,7 +3558,7 @@ I      . x2d(I1)
 IE     8 O1 +4  . +2    I1 +1  I2 +1
 IE     . u(I1) u(I2)
 MII   12 O1 +2 M1 +1   RI2 +3 RI3 +6
-MII    . u(M1) u(RI2) u(RI3)
+MII    . u(M1) r3(RI2) r6(RI3)
 RIa    8 O1 +2 R1 +1    O2 +1  I2 +4
 RIa    . r(R1) s4(I2)
 RIax   8 O1 +2 R1 +1    O2 +1  I2 +4
@@ -3554,7 +3576,7 @@ RIEc   . r(R1) u(I2) m(M3) s4(RI4)
 RIEd  12 O1 +2 R1 +1    R3 +1  I2 +4   . +2              O2 +2
 RIEd   . r(R1) r(R3) s4(I2)
 RIEe  12 O1 +2 R1 +1    R3 +1 RI2 +4   . +2              O2 +2
-RIEe   . r(R1) r(R3) s4(RI2)
+RIEe   . r(R1) r(R3) r4(RI2)
 RIEf  12 O1 +2 R1 +1    R2 +1  I3 +2  I4 +2  I5 +2       O2 +2
 RIEf   . r(R1) r(R2) s2(I3) s2(I4) s2(I5)
 RIEg  12 O1 +2 R1 +1    M3 +1  I2 +4   . +2              O2 +2
@@ -3564,9 +3586,9 @@ RILa   . r(R1) u(I2)
 RILax 12 O1 +2 R1 +1    O2 +1  I2 +8
 RILax  . r(R1) x(I2)
 RILb  12 O1 +2 R1 +1    O2 +1 RI2 +8
-RILb   . r(R1) s8(RI2)
+RILb   . r(R1) r8(RI2)
 RILc  12 O1 +2 M1 +1    O2 +1 RI2 +8
-RILc   . m(M1) s8(I2)
+RILc   . m(M1) r8(I2)
 RIS   12 O1 +2 R1 +1    M3 +1  B4 +1  D4 +3  I2 +2       O2 +2
 RIS    . r(R1) r(R2) m(M3) s2(I2)
 RR     4 O1 +2 R1 +1    R2 +1
@@ -3610,7 +3632,7 @@ RSb    . r(R1) m(M3) db(D2,B2)          t(ml(M3),B2,D2)
 RSA    8 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3
 RSA    . r(R1) r(R3) db(D2,B2)          t(TL,B2,D2)
 RSI    8 O1 +2 R1 +1    R3 +1 RI2 +4
-RSI    . r(R1) r(R3) s4(RI2)
+RSI    . r(R1) r(R3) r4(RI2)
 RSLa  12 O1 +2 L1 +1     . +1  B1 +1  D1 +3   . +1  . +1 O2 +2
 RSLa   . dlb(D1,L1,B1)                  t(L1,B1,D1)
 RSLb  12 O1 +2 L2 +2           B2 +1  D2 +3  R1 +1 M3 +1 O2 +2
@@ -3656,7 +3678,7 @@ SIYx   . ldb(DH1||DL1,B1) x(I2)         t(1,B1,DH1||DL1)
 SIYu  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
 SIYu   . ldb(DH1||DL1,B1) u(I2)         t(1,B1,DH1||DL1)
 SMI   12 O1 +2 M1 +1     . +1  B3 +1  D3 +3 RI2 +4
-SMI    . m(M1) s4(RI2) db(D3,B1)
+SMI    . m(M1) r4(RI2) db(D3,B3)
 SSa   12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
 SSa    . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1) t(l(L1),B2,D2)
 SSa1  12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
@@ -3783,8 +3805,8 @@ specifying:
                     |    A = Arithmetic instruction
                     |    B = Branch on condition instruction (Bxx)
                     |    C = Compare instructions (A:B)
+                    |   C8 = Compare relative (8-nibble offset)
                     |   CJ = Compare and Jump
-                    |   JX = Jump on Index
                     |    M = Test under mask instruction
                     |    O = Load/Store-on-Condition instruction
                     |    R = Relative branch on condition (Jxx)
@@ -3920,8 +3942,8 @@ SU      7F   RXa    A Subtract Unnormalized (SH) =4
 SSM     80   SI1    . Set System Mask
 LPSW    82   SI1    c Load Program Status Word =8
 DIAG    83   RXa    . Diagnose
-JXH     84   RSI   JX Branch Relative on Index High (32)
-JXLE    85   RSI   JX Branch Relative on Index Low or Equal (32)
+JXH     84   RSI    . Branch Relative on Index High (32)
+JXLE    85   RSI    . Branch Relative on Index Low or Equal (32)
 BXH     86   RSA    . Branch on Index High (32)
 BXLE    87   RSA    . Branch on Index Low or Equal (32)
 SRL     88   RSa    . Shift Right Single Logical (32)
@@ -4447,16 +4469,16 @@ STRL    C4F  RILb  R8 Store Relative Long (32) =4
 BPRP    C5   MII    . Branch Prediction Relative Preload
 EXRL    C60  RILb  R8 Execute
 PFDRL   C62  RILc   . Prefetch Data Relative Long
-CGHRL   C64  RILb   C Compare Halfword Relative Long (64<-16) =2
-CHRL    C65  RILb   C Compare Halfword Relative Long (32<-16) =2
-CLGHRL  C66  RILb   C Compare Logical Relative Long (64<-16) =2
-CLHRL   C67  RILb   C Compare Logical Relative Long (32<-16) =2
-CGRL    C68  RILb   C Compare Relative Long (64) =8
-CLGRL   C6A  RILb   C Compare Logical Relative Long (64) =8
-CGFRL   C6C  RILb   C Compare Relative Long (64<-32) =4
-CRL     C6D  RILb   C Compare Relative Long (32) =4
-CLGFRL  C6E  RILb   C Compare Logical Relative Long (64<-32) =4
-CLRL    C6F  RILb   C Compare Logical Relative Long (32) =4
+CGHRL   C64  RILb  C8 Compare Halfword Relative Long (64<-16) =2
+CHRL    C65  RILb  C8 Compare Halfword Relative Long (32<-16) =2
+CLGHRL  C66  RILb  C8 Compare Logical Relative Long (64<-16) =2
+CLHRL   C67  RILb  C8 Compare Logical Relative Long (32<-16) =2
+CGRL    C68  RILb  C8 Compare Relative Long (64) =8
+CLGRL   C6A  RILb  C8 Compare Logical Relative Long (64) =8
+CGFRL   C6C  RILb  C8 Compare Relative Long (64<-32) =4
+CRL     C6D  RILb  C8 Compare Relative Long (32) =4
+CLGFRL  C6E  RILb  C8 Compare Logical Relative Long (64<-32) =4
+CLRL    C6F  RILb  C8 Compare Logical Relative Long (32) =4
 BPP     C7   SMI    . Branch Prediction Preload
 MVCOS   C80  SSF    c Move with Optional Specifications
 ECTG    C81  SSF    . Extract CPU Time =8
@@ -4854,8 +4876,8 @@ LAX     EBF7 RSYa   A Load and Exclusive-Or (32) =4
 LAA     EBF8 RSYa   A Load and Add (32) =4 . F
 LAAL    EBFA RSYa   A Load and Add Logical (32) =4 . F
 LOCHI   EC42 RIEg   O Load Halfword Immediate On Condition (32<-16)
-JXHG    EC44 RIEe  JX Branch Relative on Index High (64)
-JXLEG   EC45 RIEe  JX Branch Relative on Index Low or Equal (64)
+JXHG    EC44 RIEe   . Branch Relative on Index High (64)
+JXLEG   EC45 RIEe   . Branch Relative on Index Low or Equal (64)
 LOCGHI  EC46 RIEg   O Load Halfword Immediate On Condition (64<-16)
 LOCHHI  EC4E RIEg   O Load Halfword High Immediate On Condition (32<-16)
 RISBLG  EC51 RIEf  RO Rotate then Insert Selected Bits Low (64)
