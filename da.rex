@@ -2292,15 +2292,15 @@ decodeCode: procedure expose g.
 return
 
 decodeInst: procedure expose g.
-  arg 1 a +1 1 aa +2 1 bbbb +4 4 c +1 11 dd +2 0 xInst
+  arg 1 aa +2 1 bbbb +4 4 c +1 11 dd +2 0 xInst
 /*
    Opcodes can only come from certain places in an instruction:
-   Instruction      OpCd Instruction formats using this OpCode format
-   ------------     ---- -------------------------------------------------
-   aa.......... --> aa   I MII RR RS RX SI SMI SS
-   bbbb........ --> bbbb E IE RRD RRE RRF S SIL SSE
-   cc.c........ --> ccc  RI RIL SSF
-   dd........dd --> dddd RIE RIS RRS RSL RSY RXE RXF RXY Vxx
+   Instruction      Type (for the purposes of this disassembler)
+   ------------     ---- 
+   aa.......... -->  1
+   bbbb........ -->  2
+   cc.c........ -->  3
+   dd........dd -->  4
 
    So, given 6 bytes of hex, we need to check if there is valid opcode
    for each of these sources. If not, then return a 2-byte constant and move
@@ -2309,17 +2309,18 @@ decodeInst: procedure expose g.
   ccc  = aa || c
   dddd = aa || dd
   select
-    when         g.0INST.aa   <> '' then xOpCode = aa
-    when         g.0INST.ccc  <> '' then xOpCode = ccc
-    when a='E' & aa <> 'E5' & g.0INST.dddd <> '' then xOpCode = dddd
-    when         g.0INST.bbbb <> '' then xOpCode = bbbb /* E5xx and others   */
+    when g.0INST.1.aa   <> '' then xOpCode = aa
+    when g.0INST.2.bbbb <> '' then xOpCode = bbbb
+    when g.0INST.3.ccc  <> '' then xOpCode = ccc
+    when g.0INST.4.dddd <> '' then xOpCode = dddd
     otherwise xOpCode = '.' /* Unrecognised opcode: treat as constant  */
   end
   if xOpCode <> '.'
   then g.0INST = g.0INST + 1              /* Instruction count      */
   else g.0TODO = g.0TODO + 1              /* "Bad Instruction" count*/
-  sMnemonic = g.0INST.xOpCode             /* Instruction mnemonic   */
   sFormat   = g.0FORM.xOpCode             /* Instruction format     */
+  nType     = g.0OPCD.sFormat             /* Opcode type            */
+  sMnemonic = g.0INST.nType.xOpCode       /* Instruction mnemonic   */
   sFlag     = g.0FLAG.xOpCode             /* Instruction flags      */
   sDesc     = g.0DESC.xOpCode             /* Instruction description*/
   sHint     = g.0HINT.xOpCode             /* Operand length hint    */
@@ -3223,6 +3224,25 @@ addFormat: procedure expose g.
   then do
     g.0LENG.sFormat = nLength
     g.0PARS.sFormat = sParseTemplate
+/*
+   Opcodes can only come from certain places in an instruction:
+   Instruction      Type Opcode comprises O1 concatenated with O2
+   ------------     ---- ----------------------------------------
+   aa.......... -->  1   O1 is 2 nibbles
+   bbbb........ -->  2   O1 is 4 nibbles
+   cc.c........ -->  3   O1 is 2 nibbles and O2 is 1 nibble
+   dd........dd -->  4   O1 is 2 nibbles and O2 is 2 nibbles
+*/
+    if g.0OPCD.sFormat = ''
+    then do
+      select
+        when pos('O1 +4',sParseTemplate) > 0 then nOpCodeType = 2
+        when pos('O2 +1',sParseTemplate) > 0 then nOpCodeType = 3
+        when pos('O2 +2',sParseTemplate) > 0 then nOpCodeType = 4
+        othrewise nOpCodeType = 1
+      end
+      g.0OPCD.sFormat = nOpCodeType
+    end
     /* Validate the template format */
     nSum = 0
     do i = 1 to words(sParseTemplate)
@@ -3247,11 +3267,12 @@ addInst: procedure expose g.
   if g.0MNEM.sMnemonic <> ''
   then say 'DIS0003E Already defined:' sMnemonic 'as' g.0MNEM.sMnemonic
   g.0MNEM.sMnemonic = xOpCode
-  if g.0INST.xOpCode <> ''
+  nOpCodeType = g.0OPCD.sFormat
+  if g.0INST.nOpCodeType.xOpCode <> ''
   then say 'DIS0004E Already defined:' xOpCode sMnemonic sFormat sFlag sDesc
   if g.0LENG.sFormat = ''
   then say 'DIS0005E Format' sFormat 'is not defined (opcode='xOpCode')'
-  g.0INST.xOpCode = sMnemonic
+  g.0INST.nOpCodeType.xOpCode = sMnemonic
   g.0FORM.xOpCode = sFormat
   g.0FLAG.xOpCode = sFlag
   sDesc = strip(sDesc)
@@ -3288,7 +3309,6 @@ genInst: procedure expose g.
                       X1 X2               /* Index register         */
   xInst = '000000000000' /* Pseudo instruction hex */
   interpret 'parse var xInst' g.0PARS.sFormat   /* Parse the instruction */
-  xOpCode = g.0OPCD.sMnemonic
   /* Fix-ups for those instructions that cannot have all zero operands */
   select
     when wordpos(sMnemonic,'KMA KMCTR') > 0 then do
