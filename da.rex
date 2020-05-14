@@ -3210,7 +3210,7 @@ buildJob:
   queue '//SYSPRINT  DD SYSOUT=*'
   queue '//SYSLIB    DD DISP=SHR,DSN='sDsn
   queue '//SYSIN     DD *'
-  queue '  LISTLOAD  DDN=SYSLIB,OUTPUT=MODLIST,MEMBER='sMod
+  queue '  LISTLOAD  DDN=SYSLIB,OUTPUT=BOTH,MEMBER='sMod
   queue '/*'
   queue '//'
   do i = 1 until sourceline(i) = 'BEGIN-JCL-COMMENTS'
