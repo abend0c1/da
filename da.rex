@@ -1779,59 +1779,6 @@ decodeData: procedure expose g.
   end
 return
 
-decodeDataField: procedure expose g.
-  parse arg sData
-  select
-    when g.0TYPE = 'A' then do /* Address */
-      parse var sData sChunk +4 sData
-      call doAddress sChunk
-    end
-    when g.0TYPE = 'B' then do /* Bit */
-      parse var sData sChunk +1 sData
-      call doBit sChunk        /* Bit */
-    end
-    when g.0TYPE = 'C' then do /* Character */
-      if isText(sData)
-      then call doText sData
-      else call doHex  sData
-      sData = ''
-    end
-    when g.0TYPE = 'F' then do /* Fullword */
-      parse var sData sChunk +4 sData
-      call doFullword sChunk
-    end
-    when g.0TYPE = 'H' then do /* Halfword */
-      parse var sData sChunk +2 sData
-      call doHalfword sChunk
-    end
-    when g.0TYPE = 'P' then do /* Packed decimal */
-      xData = c2x(sData)
-      nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
-      if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
-      then do                               /* Then not packed decimal   */
-        call doBinary sData                 /* Treat it as binary data   */
-        sData = ''
-      end
-      else do                               /* Valid packed decimal      */
-        nChunk = nPos / 2
-        parse var sData sChunk +(nChunk) sData
-        call doPacked sChunk
-      end
-    end
-    when g.0TYPE = 'S' then do /* S-type address constant */
-      call doSCON sData
-      sData = ''
-    end
-    when g.0TYPE = 'X' then do /* Hexadecimal */
-      parse var sData sChunk +24 sData
-      call doHex sChunk
-    end
-    otherwise do /* Unspecified data type, so just guess */
-      sData = doUnspecified(sData)
-    end
-  end
-return sData
-
 getSlices: procedure expose g.
   arg nLo,nHi
   if g.0DOTSORT = 1
@@ -1904,58 +1851,58 @@ getSlices: procedure expose g.
   end
 return g.0SLICE.0
 
-doSCON: procedure expose g.
+decodeDataField: procedure expose g.
   parse arg sData
-  xData = c2x(sData)
-  nData = length(sData)
-  /* If the S-type address constants are adjacent                 */
-  /* Then emit: DC   nS(*)                                        */
-  /* Else emit: DC   S(X'xxx'(Rnn))                               */
-  dLoc = x2d(g.0XLOC)
-  nDup = 0
-  do i = 1 to length(xData) by 4
-    xBaseDisp = substr(xData,i,4)
-    nLoc = sLoc(xBaseDisp)
-    if nLoc = dLoc /* If this S-type address refers to the current location */
-    then do
-      nDup = nDup + 1
-      if nDup = 1
-      then xSconLo = xBaseDisp
+  select
+    when g.0TYPE = 'A' then do /* Address */
+      parse var sData sChunk +4 sData
+      call doAddress sChunk
     end
-    else do /* We have a discontiguity */
-      if nDup > 0
-      then do /* Emit the S-type address list so far */
-        if nDup = 1
-        then call saveStmt 'DC','S(*)',x(xBaseDisp),g.0XLOC8 xBaseDisp
-        else call saveStmt 'DC',nDup'S(*)',x(xSconLo)'-'||x(xSconHi),g.0XLOC8
-        call nextLoc +nDup*2
-        nDup = 0
+    when g.0TYPE = 'B' then do /* Bit */
+      parse var sData sChunk +1 sData
+      call doBit sChunk        /* Bit */
+    end
+    when g.0TYPE = 'C' then do /* Character */
+      if isText(sData)
+      then call doText sData
+      else call doHex  sData
+      sData = ''
+    end
+    when g.0TYPE = 'F' then do /* Fullword */
+      parse var sData sChunk +4 sData
+      call doFullword sChunk
+    end
+    when g.0TYPE = 'H' then do /* Halfword */
+      parse var sData sChunk +2 sData
+      call doHalfword sChunk
+    end
+    when g.0TYPE = 'P' then do /* Packed decimal */
+      xData = c2x(sData)
+      nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
+      if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
+      then do                               /* Then not packed decimal   */
+        call doBinary sData                 /* Treat it as binary data   */
+        sData = ''
       end
-      /* Now emit this discontiguous S-type address */
-      call saveStmt 'DC',s(xBaseDisp),x(xBaseDisp),g.0XLOC8 xBaseDisp
-      call nextLoc +2
+      else do                               /* Valid packed decimal      */
+        nChunk = nPos / 2
+        parse var sData sChunk +(nChunk) sData
+        call doPacked sChunk
+      end
     end
-    dLoc = dLoc + 2
-    xSconHi = xBaseDisp
+    when g.0TYPE = 'S' then do /* S-type address constant */
+      call doSCON sData
+      sData = ''
+    end
+    when g.0TYPE = 'X' then do /* Hexadecimal */
+      parse var sData sChunk +24 sData
+      call doHex sChunk
+    end
+    otherwise do /* Unspecified data type, so just guess */
+      sData = doUnspecified(sData)
+    end
   end
-  if nDup > 0
-  then do
-    call saveStmt 'DC',nDup'S(*)',x(xSconLo)'-'||x(xSconHi),g.0XLOC8
-    call nextLoc +nDup*2
-  end
-return
-
-s: procedure             /* S-type address constant */
-  arg xBaseReg +1 xDisp +3
-return 'S('||x(xDisp)'('r(xBaseReg)'))'
-
-sLoc: procedure expose g.
-  arg xBaseReg +1 xDisp +3
-  xBase = g.0CBASE.xBaseReg
-  if xBase = ''
-  then nLoc = 0
-  else nLoc = x2d(xBase) + x2d(xDisp)
-return nLoc
+return sData
 
 doAddress: procedure expose g.
   parse arg sData /* No more than 4 bytes */
@@ -2009,6 +1956,27 @@ doBit: procedure expose g.
   call nextLoc nData
 return
 
+doText: procedure expose g.
+  parse arg sData
+  do while length(sData) > 0
+    parse var sData sChunk +50 sData
+    nChunk = length(sChunk)
+    if nChunk <= 6
+    then xChunk = c2x(sChunk)
+    else xChunk = ''
+    if sChunk = ''       /* For all blanks, show CLnnn' ' */
+    then call saveStmt 'DC',cl(' ',nChunk),,g.0XLOC8 xChunk
+    else do
+      sShort = strip(sChunk,'TRAILING')
+      nShort = length(sShort)
+      if nShort < nChunk /* For trailing blanks, show CLnnn'text' */
+      then call saveStmt 'DC',cl(sShort,nChunk),,g.0XLOC8 xChunk
+      else call saveStmt 'DC',cl(sChunk),,g.0XLOC8 xChunk
+    end
+    call nextLoc +length(sChunk)
+  end
+return
+
 doFullword: procedure expose g.
   parse arg sData /* No more than 4 bytes */
   xData = c2x(sData)
@@ -2036,6 +2004,59 @@ doPacked: procedure expose g.
   call saveStmt 'DC',p(xData),,g.0XLOC8 xData
   call nextLoc +nData
 return
+
+doSCON: procedure expose g.
+  parse arg sData
+  xData = c2x(sData)
+  nData = length(sData)
+  /* If the S-type address constants are adjacent                 */
+  /* Then emit: DC   nS(*)                                        */
+  /* Else emit: DC   S(X'xxx'(Rnn))                               */
+  dLoc = x2d(g.0XLOC)
+  nDup = 0
+  do i = 1 to length(xData) by 4
+    xBaseDisp = substr(xData,i,4)
+    nLoc = sLoc(xBaseDisp)
+    if nLoc = dLoc /* If this S-type address refers to the current location */
+    then do
+      nDup = nDup + 1
+      if nDup = 1
+      then xSconLo = xBaseDisp
+    end
+    else do /* We have a discontiguity */
+      if nDup > 0
+      then do /* Emit the S-type address list so far */
+        if nDup = 1
+        then call saveStmt 'DC','S(*)',x(xBaseDisp),g.0XLOC8 xBaseDisp
+        else call saveStmt 'DC',nDup'S(*)',x(xSconLo)'-'||x(xSconHi),g.0XLOC8
+        call nextLoc +nDup*2
+        nDup = 0
+      end
+      /* Now emit this discontiguous S-type address */
+      call saveStmt 'DC',s(xBaseDisp),x(xBaseDisp),g.0XLOC8 xBaseDisp
+      call nextLoc +2
+    end
+    dLoc = dLoc + 2
+    xSconHi = xBaseDisp
+  end
+  if nDup > 0
+  then do
+    call saveStmt 'DC',nDup'S(*)',x(xSconLo)'-'||x(xSconHi),g.0XLOC8
+    call nextLoc +nDup*2
+  end
+return
+
+s: procedure             /* S-type address constant */
+  arg xBaseReg +1 xDisp +3
+return 'S('||x(xDisp)'('r(xBaseReg)'))'
+
+sLoc: procedure expose g.
+  arg xBaseReg +1 xDisp +3
+  xBase = g.0CBASE.xBaseReg
+  if xBase = ''
+  then nLoc = 0
+  else nLoc = x2d(xBase) + x2d(xDisp)
+return nLoc
 
 doHex: procedure expose g.
   parse arg sData
@@ -2259,27 +2280,6 @@ return 'PL'nData/2"'"format(n)"'"  /* Number with leading zeros removed */
 xl: procedure            /* Hex with length */
   arg xData .
 return 'XL'length(xData)/2"'"xData"'"
-
-doText: procedure expose g.
-  parse arg sData
-  do while length(sData) > 0
-    parse var sData sChunk +50 sData
-    nChunk = length(sChunk)
-    if nChunk <= 6
-    then xChunk = c2x(sChunk)
-    else xChunk = ''
-    if sChunk = ''       /* For all blanks, show CLnnn' ' */
-    then call saveStmt 'DC',cl(' ',nChunk),,g.0XLOC8 xChunk
-    else do
-      sShort = strip(sChunk,'TRAILING')
-      nShort = length(sShort)
-      if nShort < nChunk /* For trailing blanks, show CLnnn'text' */
-      then call saveStmt 'DC',cl(sShort,nChunk),,g.0XLOC8 xChunk
-      else call saveStmt 'DC',cl(sChunk),,g.0XLOC8 xChunk
-    end
-    call nextLoc +length(sChunk)
-  end
-return
 
 quote: procedure
   parse arg s
