@@ -1854,63 +1854,25 @@ return g.0SLICE.0
 decodeDataField: procedure expose g.
   parse arg sData
   select
-    when g.0TYPE = 'A' then do /* Address */
-      parse var sData sChunk +4 sData
-      call doAddress sChunk
-    end
-    when g.0TYPE = 'B' then do /* Bit */
-      parse var sData sChunk +1 sData
-      call doBit sChunk        /* Bit */
-    end
-    when g.0TYPE = 'C' then do /* Character */
-      if isText(sData)
-      then call doText sData
-      else call doHex  sData
-      sData = ''
-    end
-    when g.0TYPE = 'F' then do /* Fullword */
-      parse var sData sChunk +4 sData
-      call doFullword sChunk
-    end
-    when g.0TYPE = 'H' then do /* Halfword */
-      parse var sData sChunk +2 sData
-      call doHalfword sChunk
-    end
-    when g.0TYPE = 'P' then do /* Packed decimal */
-      xData = c2x(sData)
-      nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble   */
-      if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good    */
-      then do                               /* Then not packed decimal   */
-        call doBinary sData                 /* Treat it as binary data   */
-        sData = ''
-      end
-      else do                               /* Valid packed decimal      */
-        nChunk = nPos / 2
-        parse var sData sChunk +(nChunk) sData
-        call doPacked sChunk
-      end
-    end
-    when g.0TYPE = 'S' then do /* S-type address constant */
-      call doSCON sData
-      sData = ''
-    end
-    when g.0TYPE = 'X' then do /* Hexadecimal */
-      parse var sData sChunk +24 sData
-      call doHex sChunk
-    end
-    otherwise do /* Unspecified data type, so just guess */
-      sData = doUnspecified(sData)
-    end
+    when g.0TYPE = 'A'  then sData = doAddress(sData)
+    when g.0TYPE = 'B'  then sData = doBit(sData)
+    when g.0TYPE = 'C'  then sData = doText(sData)
+    when g.0TYPE = 'F'  then sData = doFullword(sData)
+    when g.0TYPE = 'H'  then sData = doHalfword(sData)
+    when g.0TYPE = 'P'  then sData = doPacked(sData)
+    when g.0TYPE = 'S'  then sData = doSCON(sData)
+    when g.0TYPE = 'x'  then sData = doHex(sData)
+    otherwise                sData = doUnspecified(sData)
   end
 return sData
 
 doAddress: procedure expose g.
-  parse arg sData /* No more than 4 bytes */
-  nData = length(sData)
-  xData = c2x(sData)
+  parse arg sField +4 sData
+  nField = length(sField)
+  xField = c2x(sField)
   select
-    when nData = 4 then do    /* Generate A(label) or AL4(label)     */
-      xLoc = xData
+    when nField = 4 then do    /* Generate A(label) or AL4(label)     */
+      xLoc = xField
       sLoc = right(x2c(xLoc),4,'00'x)
       b31  = bitand(sLoc,'80000000'x) = '80000000'x
       sLoc = bitand(sLoc,'7FFFFFFF'x)
@@ -1926,11 +1888,11 @@ doAddress: procedure expose g.
       if b31 
       then sLabel = sLabel"+X'80000000'"
       if isFullwordBoundary()
-      then call saveStmt 'DC',a(sLabel),x(xData),g.0XLOC8 xData
-      else call saveStmt 'DC',al(sLabel,4),x(xData),g.0XLOC8 xData
+      then call saveStmt 'DC',a(sLabel),x(xField),g.0XLOC8 xField
+      else call saveStmt 'DC',al(sLabel,4),x(xField),g.0XLOC8 xField
     end
-    when nData = 3 then do    /* Generate AL3(label)                 */
-      xLoc = d2x(x2d(xData))  /* Remove leading zeros */
+    when nField = 3 then do   /* Generate AL3(label)                 */
+      xLoc = d2x(x2d(xField)) /* Remove leading zeros */
       sLabel = getLabel(xLoc)
       if sLabel = ''
       then do
@@ -1939,71 +1901,86 @@ doAddress: procedure expose g.
         sLabel = label(xLoc)
         call refLabel sLabel,xLoc
       end
-      call saveStmt 'DC',al(sLabel,3),x(xData),g.0XLOC8 xData
+      call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
     end
     otherwise do              /* Generate ALn(decimal)               */
-      call saveStmt 'DC',ald(xData),x(xData),g.0XLOC8 xData
+      call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
     end
   end
-  call nextLoc +nData
-return
+  call nextLoc +nField
+return sData
 
 doBit: procedure expose g.
-  parse arg sData /* No more than 1 byte */
-  xData = c2x(sData)
-  nData = length(sData)
-  call saveStmt 'DC',m(xData),,g.0XLOC8 xData
-  call nextLoc nData
-return
+  parse arg sField +1 sData
+  xField = c2x(sField)
+  nField = length(sField)
+  call saveStmt 'DC',m(xField),,g.0XLOC8 xField
+  call nextLoc nField
+return sData
 
 doText: procedure expose g.
   parse arg sData
+  if \isText(sData)
+  then return doHex(sData)
   do while length(sData) > 0
-    parse var sData sChunk +50 sData
-    nChunk = length(sChunk)
-    if nChunk <= 6
-    then xChunk = c2x(sChunk)
-    else xChunk = ''
-    if sChunk = ''       /* For all blanks, show CLnnn' ' */
-    then call saveStmt 'DC',cl(' ',nChunk),,g.0XLOC8 xChunk
+    parse var sData sField +50 sData
+    nField = length(sField)
+    if nField <= 6
+    then xField = c2x(sField)
+    else xField = ''
+    if sField = ''       /* For all blanks, show CLnnn' ' */
+    then call saveStmt 'DC',cl(' ',nField),,g.0XLOC8 xField
     else do
-      sShort = strip(sChunk,'TRAILING')
+      sShort = strip(sField,'TRAILING')
       nShort = length(sShort)
-      if nShort < nChunk /* For trailing blanks, show CLnnn'text' */
-      then call saveStmt 'DC',cl(sShort,nChunk),,g.0XLOC8 xChunk
-      else call saveStmt 'DC',cl(sChunk),,g.0XLOC8 xChunk
+      if nShort < nField /* For trailing blanks, show CLnnn'text' */
+      then call saveStmt 'DC',cl(sShort,nField),,g.0XLOC8 xField
+      else call saveStmt 'DC',cl(sField),,g.0XLOC8 xField
     end
-    call nextLoc +length(sChunk)
+    call nextLoc +length(sField)
   end
-return
+return ''
 
 doFullword: procedure expose g.
-  parse arg sData /* No more than 4 bytes */
-  xData = c2x(sData)
-  nData = length(sData)
-  if isFullwordBoundary() & nData = 4
-  then call saveStmt 'DC',f(xData),,g.0XLOC8 xData
-  else call saveStmt 'DC',fl(xData),,g.0XLOC8 xData
-  call nextLoc +nData
-return
+  parse arg sField +4 sData
+  xField = c2x(sField)
+  nField = length(sField)
+  if isFullwordBoundary() & nField = 4
+  then call saveStmt 'DC',f(xField),,g.0XLOC8 xField
+  else call saveStmt 'DC',fl(xField),,g.0XLOC8 xField
+  call nextLoc +nField
+return sData
 
 doHalfword: procedure expose g.
-  parse arg sData /* No more than 2 bytes */
-  xData = c2x(sData)
-  nData = length(sData)
-  if isHalfwordBoundary() & nData = 2
-  then call saveStmt 'DC',h(xData),,g.0XLOC8 xData
-  else call saveStmt 'DC',hl(xData),,g.0XLOC8 xData
-  call nextLoc +nData
-return
+  parse arg sField +2 sData
+  xField = c2x(sField)
+  nField = length(sField)
+  if isHalfwordBoundary() & nField = 2
+  then call saveStmt 'DC',h(xField),,g.0XLOC8 xField
+  else call saveStmt 'DC',hl(xField),,g.0XLOC8 xField
+  call nextLoc +nField
+return sData
 
 doPacked: procedure expose g.
-  parse arg sData
-  xData = c2x(sData)
-  nData = length(sData)
-  call saveStmt 'DC',p(xData),,g.0XLOC8 xData
-  call nextLoc +nData
-return
+  parse arg sData 0 sField +16          /* No more than 16 bytes     */
+  xField = c2x(sField)
+  nField = getPackedLen(xField)         /* Size of valid packed dec  */
+  if nField = 0                         /* If position is no good    */
+  then sData = doBinary(sData)          /* then not packed decimal   */
+  else do                               /* Valid packed decimal      */
+    parse var sData sField +(nField) sData
+    xField = c2x(sField)
+    call saveStmt 'DC',p(xField),,g.0XLOC8 xField
+    call nextLoc +nField
+  end
+return sData
+
+getPackedLen: procedure
+  arg xData
+  nPos = verify(xData,'ABCDEF','MATCH') /* Poisition of sign nibble */
+  if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good   */
+  then return 0
+return nPos/2
 
 doSCON: procedure expose g.
   parse arg sData
@@ -2059,12 +2036,9 @@ sLoc: procedure expose g.
 return nLoc
 
 doHex: procedure expose g.
-  parse arg sData
-  xData = c2x(sData)
-  nData = length(sData)
-  call saveStmt 'DC',xl(xData),,g.0XLOC8 xData
-  call nextLoc +nData
-return
+  parse arg sField +24 sData
+  sTemp = doBin(xField)
+return sData
 
 doUnspecified: procedure expose g.
   parse arg sData 0 s4 +4
@@ -2080,10 +2054,32 @@ doUnspecified: procedure expose g.
     then do
       x4 = c2x(s4)
       call saveStmt 'DC',sAdCon,x(x4),g.0XLOC8 x4 /* Emit A(somelabel) */
-      call nextLoc +length(s4)
+      call nextLoc +4
       parse var sData . +4 sData
     end
   end
+  xLoc = g.0XLOC
+  sType = g.0CTYPE.xLoc
+  if sType <> ''
+  then do
+    nMax = g.0MAXLEN.sType
+    nField = g.0CLENG.xLoc
+    nData = length(sData)
+    if nField <= nData
+    then do
+      nField = min(nMax,nField)
+      parse var sData sField +(nField) sData
+      xField = c2x(sField)
+      select
+        when sType = 'A'  then sTemp = doAddress(sField)
+        when sType = 'F'  then sTemp = doFullword(sField)
+        when sType = 'H'  then sTemp = doHalfword(sField)
+        when sType = 'P'  then sTemp = doPacked(sField)
+        otherwise              sTemp = doHex(sField)
+      end
+    end
+  end
+
   nFirstNonText = verify(sData,g.0EBCDIC,'NOMATCH')
   nFirstText    = verify(sData,g.0EBCDIC,'MATCH')
 /*
@@ -2096,35 +2092,27 @@ doUnspecified: procedure expose g.
 */
   select
     when nFirstText = 0 then do     /* All binary */
-      call doBinary sData
-      sData = ''
+      sData = doBinary(sData)
     end
     when nFirstNonText = 0 then do  /* All text */
-      call doText sData
-      sData = ''
+      sData = doText(sData)
     end
     when nFirstText = 1 then do     /* Text then binary             */
       if length(sData) <= 4         /* It's probably all binary     */
-      then do                       /* x... or xx.. or xxx.         */
-        call doBinary sData
-        sData = ''
-      end
+      then sData = doBinary(sData)  /* tbbb or ttbb or tttb         */
       else do
-        sChunk = left(sData,nFirstNonText-1)
+        sField = left(sData,nFirstNonText-1)
+        sTemp = doText(sField)
         sData = substr(sData,nFirstNonText)
-        call doText sChunk
       end
     end
     when nFirstNonText = 1 then do  /* Binary then text             */
       if length(sData) <= 4         /* It's probably all binary     */
-      then do                       /* .xxx or ..xx or ...x         */
-        call doBinary sData
-        sData = ''
-      end
+      then sData = doBinary(sData)  /* bttt or bbtt or bbbt         */
       else do
-        sChunk = left(sData,nFirstText-1)
+        sField = left(sData,nFirstText-1)
+        sTemp = doBinary(sField)
         sData = substr(sData,nFirstText)
-        call doBinary sChunk
       end
     end
     otherwise do                    /* WTF? */
@@ -2136,41 +2124,40 @@ return sData
 
 doBinary: procedure expose g.
   parse arg sData
-  if \isFullwordBoundary() & length(sData) > 0
-  then do /* Emit 1 to 3 bytes so that the rest aligns on a 4-byte boundary */
-    nChunk = g.0LOC//4
-    parse arg sChunk +(nChunk) sData
-    xChunk = c2x(sChunk)
-    call saveStmt 'DC',data(xChunk),,g.0XLOC8 xChunk
-    call nextLoc +length(sChunk)
-  end
-  do while length(sData) > 0
-    parse var sData sChunk x.1 +4 x.2 +4 x.3 +4 x.4 +4 sData /* Four words at a time */
+  if isFullwordBoundary()     /* Scan for address constants */
+  then do while length(sData) > 0       
+    parse var sData s.1 +4 s.2 +4 s.3 +4 s.4 +4 sData /* Four words at a time */
     sBin = ''
-    do i = 1 to 4 while length(x.i) > 0 /* For each fullword... */
-      s4 = x.i                          /* 1 to 4 bytes */
-      sAdCon = adcon(s4)                /* Convert to a named address if one exists */
+    do i = 1 to 4 while length(s.i) > 0 /* For each fullword... */
+      s4 = s.i                /* 1 to 4 bytes */
+      sAdCon = adcon(s4)      /* Convert to a named address if one exists */
       if sAdCon = ''
-      then sBin = sBin || s4            /* Accumulate this binary chunk */
+      then sBin = sBin || s4  /* Accumulate this binary chunk */
       else do
-        sBin = doBin(sBin)              /* Emit any preceeding binary chunk */
+        sBin = doBin(sBin)    /* Emit any preceeding binary chunk */
         x4 = c2x(s4)
         call saveStmt 'DC',sAdCon,x(x4),g.0XLOC8 x4 /* Emit A(somelabel) */
         call nextLoc +length(s4)
       end
     end
-    sBin = doBin(sBin)                    /* Emit any residual binary */
+    sBin = doBin(sBin)          /* Emit any residual binary */
   end
-return
+  else do while length(sData) > 0
+    parse var sData s16 +16 sData /* 16 bytes at a time */
+    sBin = doBin(s16)
+  end
+return ''
 
 doBin: procedure expose g.
-  parse arg sBin
-  nBin = length(sBin)
-  if nBin > 0
+  parse arg sField
+  nField = length(sField)
+  if nField > 0
   then do
-    xBin = c2x(sBin)
-    call saveStmt 'DC',data(xBin),,g.0XLOC8 xBin
-    call nextLoc +(nBin)
+    xField = c2x(sField)
+    if nField <= 6
+    then call saveStmt 'DC',data(xField),,g.0XLOC8 xField
+    else call saveStmt 'DC',data(xField),,g.0XLOC8
+    call nextLoc +(nField)
   end
 return ''
 
