@@ -472,7 +472,7 @@ BEGIN-JCL-COMMENTS
 **                                                                   **
 **    (label)   Assigns an assembler label to the following code or  **
 **              data. You may use it to name a CSECT for example.    **
-**              The label cannot be R0 to R15, or A,B,C,D,F,H,P,S or **
+**              The label cannot be R0 to R15, or A to F, H, P, S or **
 **              X as those have special meanings as described above. **
 **              The maximum length of a label assigned in this way   **
 **              is 8 (for pragmatic reasons).                        **
@@ -1257,7 +1257,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C F H P S X') then do /* (x) ...set data type   */
+      | inset(sTag,'A B C D E F H P S X') then do /* (x) ...set data type   */
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1861,7 +1861,9 @@ decodeDataField: procedure expose g.
     when g.0TYPE = 'H'  then sData = doHalfword(sData)
     when g.0TYPE = 'P'  then sData = doPacked(sData)
     when g.0TYPE = 'S'  then sData = doSCON(sData)
-    when g.0TYPE = 'x'  then sData = doHex(sData)
+    when g.0TYPE = 'X'  then sData = doHex(sData)
+    when g.0TYPE = 'E'  then sData = doShortHexFloat(sData)
+    when g.0TYPE = 'D'  then sData = doLongHexFloat(sData)
     otherwise                sData = doUnspecified(sData)
   end
 return sData
@@ -2040,6 +2042,62 @@ doHex: procedure expose g.
   sTemp = doBin(xField)
 return sData
 
+doShortHexFloat: procedure expose g.
+  parse arg sField +4 sData
+  nField = length(sField)
+  if nField = 4
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',eh(sField),x(xField),g.0XLOC8 xField
+    call nextLoc +4
+  end
+  else sData = doHex(sField)
+return sData
+
+eh: procedure expose g.
+  parse arg sExp +1 sValue
+  if bitand(sExp,'10000000'b) = '10000000'b
+  then sSign = '-'
+  else sSign = '+'
+  nExp = c2d(bitand(sExp,'01111111'b))-64
+  xValue = c2x(sValue)
+  nScale = verify(xValue,'0','NOMATCH') - 1
+  if nScale < 0 then nScale = 6
+  if nScale > 0
+  then sScale = 'S'nScale
+  else sScale = ''
+  nValue = c2d(sValue)*(16**(nExp-6))
+  sValue = sSign || strip(format(nValue,,8,2,0))
+return 'EH'sScale"'"sValue"'"
+
+doLongHexFloat: procedure expose g.
+  parse arg sField +8 sData
+  nField = length(sField)
+  if nField = 8
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',dh(sField),x(xField),g.0XLOC8 xField
+    call nextLoc +8
+  end
+  else sData = doHex(sField)
+return sData
+
+dh: procedure expose g.
+  parse arg sExp +1 sValue
+  if bitand(sExp,'10000000'b) = '10000000'b
+  then sSign = '-'
+  else sSign = '+'
+  nExp = c2d(bitand(sExp,'01111111'b))-64
+  xValue = c2x(sValue)
+  nScale = verify(xValue,'0','NOMATCH') - 1
+  if nScale < 0 then nScale = 14
+  if nScale > 0
+  then sScale = 'S'nScale
+  else sScale = ''
+  nValue = c2d(sValue)*(16**(nExp-14))
+  sValue = sSign || strip(format(nValue,,18,2,0))
+return 'DH'sScale"'"sValue"'"
+
 doUnspecified: procedure expose g.
   parse arg sData 0 s4 +4
   /* Prioritise a leading 4-byte address constant - which happens quite
@@ -2075,6 +2133,8 @@ doUnspecified: procedure expose g.
         when sType = 'F'  then sTemp = doFullword(sField)
         when sType = 'H'  then sTemp = doHalfword(sField)
         when sType = 'P'  then sTemp = doPacked(sField)
+        when sType = 'E'  then sTemp = doShortHexFloat(sField)
+        when sType = 'D'  then sTemp = doLongHexFloat(sField)
         otherwise              sTemp = doHex(sField)
       end
     end
@@ -3071,9 +3131,10 @@ prolog:
   call addType 'F',4
   call addType 'FD',8
   call addType 'P',16
-  call addType 'Z',16
   call addType 'A',4
   call addType 'AD',8
+  call addType 'D',8
+  call addType 'E',4
   /* Compare Immediate and Branch extended mnemonic suffixes */
                                 /* Equal             */
                                 /* |Low              */
@@ -3906,26 +3967,26 @@ M       5C   RXa    A Multiply (64<-32) =4 . F
 D       5D   RXa    A Divide (32<-64) =4 . F
 AL      5E   RXa    A Add Logical (32) =4 . F
 SL      5F   RXa    A Subtract Logical (32) =4 . F
-STD     60   RXa    . Store (Long) =8
-MXD     67   RXa    A Multiply (EH<-LH) =8
-LD      68   RXa    . Load (Long) =8
-CD      69   RXa    C Compare (LH) =8
-AD      6A   RXa    A Add Normalized (LH) =8
-SD      6B   RXa    A Subtract Normalized (LH) =8
-MD      6C   RXa    A Multiply (LH) =8
-DD      6D   RXa    A Divide (LH) =8
-AW      6E   RXa    A Add Unnormalized (LH) =8
-SW      6F   RXa    A Subtract Unnormalized (LH) =8
-STE     70   RXa    . Store (Short) =4
-MS      71   RXa    A Multiply Single (32) -4
-LE      78   RXa    . Load (Short) =4
-CE      79   RXa    C Compare (SH) =4
-AE      7A   RXa    A Add Normalized (SH) =4
-SE      7B   RXa    A Subtract Normalized (SH) =4
-ME      7C   RXa    A Multiply (LH<-SH) =4
-DE      7D   RXa    A Divide (SH) =4
-AU      7E   RXa    A Add Unnormalized (SH) =4
-SU      7F   RXa    A Subtract Unnormalized (SH) =4
+STD     60   RXa    . Store (Long) =8 . D
+MXD     67   RXa    A Multiply (EH<-LH) =8 . D
+LD      68   RXa    . Load (Long) =8 . D
+CD      69   RXa    C Compare (LH) =8 . D
+AD      6A   RXa    A Add Normalized (LH) =8 . D
+SD      6B   RXa    A Subtract Normalized (LH) =8 . D
+MD      6C   RXa    A Multiply (LH) =8 . D
+DD      6D   RXa    A Divide (LH) =8 . D
+AW      6E   RXa    A Add Unnormalized (LH) =8 . D
+SW      6F   RXa    A Subtract Unnormalized (LH) =8 . D
+STE     70   RXa    . Store (Short) =4 . E
+MS      71   RXa    A Multiply Single (32) =4 . F
+LE      78   RXa    . Load (Short) =4 . E
+CE      79   RXa    C Compare (SH) =4 . E
+AE      7A   RXa    A Add Normalized (SH) =4 . E
+SE      7B   RXa    A Subtract Normalized (SH) =4 . E
+ME      7C   RXa    A Multiply (LH<-SH) =4 . E
+DE      7D   RXa    A Divide (SH) =4 . E
+AU      7E   RXa    A Add Unnormalized (SH) =4 . E
+SU      7F   RXa    A Subtract Unnormalized (SH) =4 . E
 SSM     80   SI1    . Set System Mask
 LPSW    82   SI1    c Load Program Status Word =8
 DIAG    83   RXa    . Diagnose
@@ -4924,22 +4985,22 @@ MDB     ED1C RXE    A Multiply (LB) =8
 DDB     ED1D RXE    A Divide (LB) =8
 MADB    ED1E RXE3   A Multiply and Add (LB) =8
 MSDB    ED1F RXF    A Multiply and Subtract (LB) =8
-LDE     ED24 RXE    . Load Lengthened (LH<-SH) =4
-LXD     ED25 RXE    . Load Lengthened (EH<-LH) =8
-LXE     ED26 RXE    . Load Lengthened (EH<-SH) =4
-MAE     ED2E RXF    A Multiply and Add (SH) =4
-MSE     ED2F RXF    A Multiply and Subtract (SH) =4
-SQE     ED34 RXE    . Square Root (SH) =4
-SQD     ED35 RXE    . Square Root (LH) =8
-MEE     ED37 RXE    A Multiply (SH) =4
-MAYL    ED38 RXF    A Multiply and Add Unnormalized (EHL<-LH) =8
-MYL     ED39 RXF    A Multiply Unnormalized (EHL<-LH) =8
-MAY     ED3A RXF    A Multiply and Add Unnormalized (EH<-LH) =8
-MY      ED3B RXF    A Multiply Unnormalized (EH<-LH) =8
-MAYH    ED3C RXF    A Multiply and Add Unnormalized (EHH<-LH) =8
-MYH     ED3D RXF    A Multiply Unnormalized (EHH<-LH) =8
-MAD     ED3E RXF    A Multiply and Add (LH) =8
-MSD     ED3F RXF    A Multiply and Subtract (LH) =8
+LDE     ED24 RXE    . Load Lengthened (LH<-SH) =4 . E
+LXD     ED25 RXE    . Load Lengthened (EH<-LH) =8 . D
+LXE     ED26 RXE    . Load Lengthened (EH<-SH) =4 . E
+MAE     ED2E RXF    A Multiply and Add (SH) =4 . E
+MSE     ED2F RXF    A Multiply and Subtract (SH) =4 . E
+SQE     ED34 RXE    . Square Root (SH) =4 . E
+SQD     ED35 RXE    . Square Root (LH) =8 . D
+MEE     ED37 RXE    A Multiply (SH) =4 . E
+MAYL    ED38 RXF    A Multiply and Add Unnormalized (EHL<-LH) =8 . D
+MYL     ED39 RXF    A Multiply Unnormalized (EHL<-LH) =8 . D
+MAY     ED3A RXF    A Multiply and Add Unnormalized (EH<-LH) =8 . D
+MY      ED3B RXF    A Multiply Unnormalized (EH<-LH) =8 . D
+MAYH    ED3C RXF    A Multiply and Add Unnormalized (EHH<-LH) =8 . D
+MYH     ED3D RXF    A Multiply Unnormalized (EHH<-LH) =8 . D
+MAD     ED3E RXF    A Multiply and Add (LH) =8 . D
+MSD     ED3F RXF    A Multiply and Subtract (LH) =8 . D
 SLDT    ED40 RXF    . Shift Significand Left (LD)
 SRDT    ED41 RXF    . Shift Significand Right (LD)
 SLXT    ED48 RXF    . Shift Significand Left (ED)
