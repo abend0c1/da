@@ -1912,6 +1912,33 @@ doAddress: procedure expose g.
   call nextLoc +nField
 return sData
 
+doAddress8: procedure expose g.
+  parse arg sField +8 sData
+  nField = length(sField)
+  xField = c2x(sField)
+  select
+    when nField = 8 then do    /* Generate AD(label) or ADL8(label)     */
+      xLoc = xField
+      xLoc = d2x(x2d(xLoc))    /* Remove leading zeros */
+      sLabel = getLabel(xLoc)
+      if sLabel = ''
+      then do
+        if x2d(xLoc) < g.0LOC
+        then call addBackRef xLoc
+        sLabel = label(xLoc)
+        call refLabel sLabel,xLoc
+      end
+      if isDoublewordBoundary()
+      then call saveStmt 'DC',ad(sLabel),x(xField),g.0XLOC8 xField
+      else call saveStmt 'DC',adl(sLabel,8),x(xField),g.0XLOC8 xField
+    end
+    otherwise do              /* Generate ADLn(decimal)               */
+      call saveStmt 'DC',adld(xData),x(xField),g.0XLOC8 xField
+    end
+  end
+  call nextLoc +nField
+return sData
+
 doBit: procedure expose g.
   parse arg sField +1 sData
   xField = c2x(sField)
@@ -1950,6 +1977,16 @@ doFullword: procedure expose g.
   if isFullwordBoundary() & nField = 4
   then call saveStmt 'DC',f(xField),,g.0XLOC8 xField
   else call saveStmt 'DC',fl(xField),,g.0XLOC8 xField
+  call nextLoc +nField
+return sData
+
+doFullword8: procedure expose g.
+  parse arg sField +8 sData
+  xField = c2x(sField)
+  nField = length(sField)
+  if isDoublewordBoundary() & nField = 8
+  then call saveStmt 'DC',fd(xField),,g.0XLOC8 xField
+  else call saveStmt 'DC',fdl(xField),,g.0XLOC8 xField
   call nextLoc +nField
 return sData
 
@@ -2023,7 +2060,7 @@ doSCON: procedure expose g.
     call saveStmt 'DC',nDup'S(*)',x(xSconLo)'-'||x(xSconHi),g.0XLOC8
     call nextLoc +nDup*2
   end
-return
+return ''
 
 s: procedure             /* S-type address constant */
   arg xBaseReg +1 xDisp +3
@@ -2102,7 +2139,7 @@ doUnspecified: procedure expose g.
   parse arg sData 0 s4 +4
   /* Prioritise a leading 4-byte address constant - which happens quite
      often. This avoids say 0000C4D4 being decoded as
-     XL2'0000',C'DM' when, if C4D4 already has a label assigned,
+     XL2'0000',C'DM' when, if location C4D4 already has a label assigned,
      A(somelabel) would be more appropriate
   */
   if isFullwordBoundary() & length(s4) = 4
@@ -2130,7 +2167,9 @@ doUnspecified: procedure expose g.
       xField = c2x(sField)
       select
         when sType = 'A'  then sTemp = doAddress(sField)
+        when sType = 'AD' then sTemp = doAddress8(sField)
         when sType = 'F'  then sTemp = doFullword(sField)
+        when sType = 'FD' then sTemp = doFullword8(sField)
         when sType = 'H'  then sTemp = doHalfword(sField)
         when sType = 'P'  then sTemp = doPacked(sField)
         when sType = 'E'  then sTemp = doShortHexFloat(sField)
@@ -2242,6 +2281,9 @@ return g.0LOC//2
 isFullwordBoundary: procedure expose g.
 return g.0LOC//4 = 0
 
+isDoublewordBoundary: procedure expose g.
+return g.0LOC//8 = 0
+
 isHalfwordBoundary: procedure expose g.
 return g.0LOC//2 = 0
 
@@ -2267,18 +2309,42 @@ al: procedure            /* Address (unaligned) */
   arg sLabel,nLen
 return 'AL'nLen'('sLabel')'
 
+ad: procedure            /* Address (double, aligned on doubleword) */
+  arg sLabel .
+return 'AD('sLabel')'
+
+adl: procedure           /* Address (double, unaligned) */
+  arg sLabel,nLen
+return 'ADL'nLen'('sLabel')'
+
 ald: procedure           /* Address (as a decimal) */
   arg xData
 return 'AL'length(xData)/2'('x2d(xData)')'
+
+adld: procedure          /* Address (double, as a decimal) */
+  arg xData
+return 'ADL'length(xData)/2'('x2d(xData)')'
 
 cl: procedure            /* Character with length */
   parse arg s,n
   if n = '' then n = length(s)
 return 'CL'n||quote(s)
 
-f: procedure             /* Fullword */
+f: procedure             /* Binary fullword */
   arg xData .
 return "F'"x2d(xData,8)"'"
+
+fl: procedure            /* Binary fullword with length */
+  arg xData .
+return 'FL'length(xData)/2"'"x2d(xData,8)"'"
+
+fd: procedure            /* Binary doubleword */
+  arg xData .
+return "FD'"x2d(xData,16)"'"
+
+fdl: procedure           /* Binary doubleword with length */
+  arg xData .
+return 'FDL'length(xData)/2"'"x2d(xData,16)"'"
 
 fhx: procedure           /* Fullword, halfword or hex */
   arg xData
@@ -2294,10 +2360,6 @@ fhx: procedure           /* Fullword, halfword or hex */
     end
   end
 return f(xData)          /* 00000000 to 00001000 --> F'0' to F'4096'*/
-
-fl: procedure            /* Fullword with length */
-  arg xData .
-return 'FL'length(xData)/2"'"x2d(xData,8)"'"
 
 h: procedure             /* Halfword */
   arg xData .
@@ -2421,11 +2483,14 @@ decodeInst: procedure expose g.
   parse var TL TL T1 T2         /*    TL=length Tn=nTh operand type  */
   if T1 = '.' then T1 = ''
   if T2 = '.' then T2 = ''
+  if T1||T2 <> ''
+  then TX = '('T1','T2')'
+  else TX = ''
   interpret 'o =' sEmitter            /* 3. Generate instruction operands  */
   sOperands = space(o,,',')           /* Put commas between operands    */
   sOperands = translate(sOperands,' ',g.0HARDBLANK) /* Soften blanks :) */
   xCode     = left(xInst,nLen)
-  sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(TL,3)
+  sOverlay  = g.0XLOC8 left(xCode,12) left(sFormat,5) right(TL,3) TX
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
   if inSet(sFlag,'A C C8 c M')
