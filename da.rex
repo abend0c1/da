@@ -1583,7 +1583,9 @@ saveDSECTs:
             d1 = d1 + nLength
           end
           else do
-            sFormat = '0XL'nLength getFormat(sType,nLength)
+            if sType = 'X'
+            then sFormat = '0XL'nLength
+            else sFormat = '0XL'nLength getFormat(sType,nLength)
           end
         end
         call save asm(sLabel,'DS' sFormat)
