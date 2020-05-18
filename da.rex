@@ -5026,32 +5026,32 @@ CGIB    ECFC RIS   CJ Compare Immediate and Branch (64<-8)
 CLGIB   ECFD RIS   CJ Compare Logical Immediate and Branch (64<-8)
 CIB     ECFE RIS   CJ Compare Immediate and Branch (32<-8)
 CLIB    ECFF RIS   CJ Compare Logical Immediate and Branch (32<-8)
-LDEB    ED04 RXE    . Load Lengthened (LB<-SB) =4
-LXDB    ED05 RXE    . Load Lengthened (EB<-LB) =8
-LXEB    ED06 RXE    . Load Lengthened (EB<-SB) =4
-MXDB    ED07 RXE    A Multiply (EB<-LB) =8
-KEB     ED08 RXE    C Compare and Signal (SB) =4
-CEB     ED09 RXE    C Compare (SB) =4
-AEB     ED0A RXE    A Add (SB) =4
-SEB     ED0B RXE    A Subtract (SB) =4
-MDEB    ED0C RXE    A Multiply (LB<-SB) =4
-DEB     ED0D RXE    A Divide (SB) =4
-MAEB    ED0E RXF    A Multiply and Add (SB) =4
-MSEB    ED0F RXE3   A Multiply and Subtract (SB) =4
-TCEB    ED10 RXE    c Test Data Class (SB) =4
-TCDB    ED11 RXE    c Test Data Class (LB) =8
+LDEB    ED04 RXE    . Load Lengthened (LB<-SB) =4 . EB
+LXDB    ED05 RXE    . Load Lengthened (EB<-LB) =8 . DB
+LXEB    ED06 RXE    . Load Lengthened (EB<-SB) =4 . EB
+MXDB    ED07 RXE    A Multiply (EB<-LB) =8 . DB
+KEB     ED08 RXE    C Compare and Signal (SB) =4 . EB
+CEB     ED09 RXE    C Compare (SB) =4 . EB
+AEB     ED0A RXE    A Add (SB) =4 . EB
+SEB     ED0B RXE    A Subtract (SB) =4 . EB
+MDEB    ED0C RXE    A Multiply (LB<-SB) =4 . EB
+DEB     ED0D RXE    A Divide (SB) =4 . EB
+MAEB    ED0E RXF    A Multiply and Add (SB) =4 . EB
+MSEB    ED0F RXE3   A Multiply and Subtract (SB) =4 . EB
+TCEB    ED10 RXE    c Test Data Class (SB)
+TCDB    ED11 RXE    c Test Data Class (LB)
 TCXB    ED12 RXE    c Test Data Class (EB)
-SQEB    ED14 RXE    . Square Root (SB) =4
-SQDB    ED15 RXE    . Square Root (LB) =8
-MEEB    ED17 RXE    A Multiply (SB) =4
-KDB     ED18 RXE    C Compare and Signal (LB) =8
-CDB     ED19 RXE    C Compare (LB) =8
-ADB     ED1A RXE    A Add (LB) =8
-SDB     ED1B RXE    A Subtract (LB) =8
-MDB     ED1C RXE    A Multiply (LB) =8
-DDB     ED1D RXE    A Divide (LB) =8
-MADB    ED1E RXE3   A Multiply and Add (LB) =8
-MSDB    ED1F RXF    A Multiply and Subtract (LB) =8
+SQEB    ED14 RXE    . Square Root (SB) =4 . EB
+SQDB    ED15 RXE    . Square Root (LB) =8 . DB
+MEEB    ED17 RXE    A Multiply (SB) =4 . EB
+KDB     ED18 RXE    C Compare and Signal (LB) =8 . DB
+CDB     ED19 RXE    C Compare (LB) =8 . DB
+ADB     ED1A RXE    A Add (LB) =8 . DB
+SDB     ED1B RXE    A Subtract (LB) =8 . DB
+MDB     ED1C RXE    A Multiply (LB) =8 . DB
+DDB     ED1D RXE    A Divide (LB) =8 . DB
+MADB    ED1E RXE3   A Multiply and Add (LB) =8 . DB
+MSDB    ED1F RXF    A Multiply and Subtract (LB) =8 . DB
 LDE     ED24 RXE    . Load Lengthened (LH<-SH) =4 . E
 LXD     ED25 RXE    . Load Lengthened (EH<-LH) =8 . D
 LXE     ED26 RXE    . Load Lengthened (EH<-SH) =4 . E
@@ -5081,11 +5081,11 @@ TDGXT   ED59 RXE    c Test Data Group (ED)
 LEY     ED64 RXYa   . Load (Short) =4
 LDY     ED65 RXYa   . Load (Long) =8
 STEY    ED66 RXYa   . Store (Short) =4
-STDY    ED67 RXYa   . Store (Long) =8 
-CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2) . C
-CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2) . C
-CDZT    EDAA RSLb   . Convert from Zoned (to LD) =l(L2) . C
-CXZT    EDAB RSLb   . Convert from Zoned (to ED) =l(L2) . C
+STDY    ED67 RXYa   . Store (Long) =8
+CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2)
+CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2) 
+CDZT    EDAA RSLb   . Convert from Zoned (to LD) =l(L2)
+CXZT    EDAB RSLb   . Convert from Zoned (to ED) =l(L2)
 CPDT    EDAC RSLb   A Convert to Packed (from LD) =l(L2) . P
 CPXT    EDAD RSLb   A Convert to Packed (from ED) =l(L2) . P
 CDPT    EDAE RSLb   . Convert from Packed (to LD) =l(L2) . P
