@@ -1257,7 +1257,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C D E F H P S X') then do /* (x) ...set data type   */
+      | inset(sTag,'A B C D DB E EB F H P S X') then do /* (x) data type   */
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1866,6 +1866,8 @@ decodeDataField: procedure expose g.
     when g.0TYPE = 'X'  then sData = doHex(sData)
     when g.0TYPE = 'E'  then sData = doShortHexFloat(sData)
     when g.0TYPE = 'D'  then sData = doLongHexFloat(sData)
+    when g.0TYPE = 'EB'  then sData = doShortBinFloat(sData)
+    when g.0TYPE = 'DB'  then sData = doLongBinFloat(sData)
     otherwise                sData = doUnspecified(sData)
   end
 return sData
@@ -2087,25 +2089,28 @@ doShortHexFloat: procedure expose g.
   if nField = 4
   then do
     xField = c2x(sField)
-    call saveStmt 'DC',eh(sField),x(xField),g.0XLOC8 xField
+    sSpecialValue = g.0EH.xField
+    if sSpecialValue = ''
+    then call saveStmt 'DC',eh(sField),x(xField),g.0XLOC8 xField
+    else call saveStmt 'DC',"EH'"sSpecialValue"'",x(xField),g.0XLOC8 xField
     call nextLoc +4
   end
   else sData = doHex(sField)
 return sData
 
 eh: procedure expose g.
-  parse arg sExp +1 sValue
+  parse arg sExp +1 sFraction
   if bitand(sExp,'10000000'b) = '10000000'b
   then sSign = '-'
   else sSign = '+'
   nExp = c2d(bitand(sExp,'01111111'b))-64
-  xValue = c2x(sValue)
-  nScale = verify(xValue,'0','NOMATCH') - 1
+  xFraction = c2x(sFraction)
+  nScale = verify(xFraction,'0','NOMATCH') - 1
   if nScale < 0 then nScale = 6
   if nScale > 0
   then sScale = 'S'nScale
   else sScale = ''
-  nValue = c2d(sValue)*(16**(nExp-6))
+  nValue = c2d(sFraction)*(16**(nExp-6))
   sValue = sSign || strip(format(nValue,,8,2,0))
 return 'EH'sScale"'"sValue"'"
 
@@ -2115,27 +2120,100 @@ doLongHexFloat: procedure expose g.
   if nField = 8
   then do
     xField = c2x(sField)
-    call saveStmt 'DC',dh(sField),x(xField),g.0XLOC8 xField
+    sSpecialValue = g.0DH.xField
+    if sSpecialValue = ''
+    then call saveStmt 'DC',dh(sField),x(xField),g.0XLOC8 xField
+    else call saveStmt 'DC',"DH'"sSpecialValue"'",x(xField),g.0XLOC8 xField
     call nextLoc +8
   end
   else sData = doHex(sField)
 return sData
 
 dh: procedure expose g.
-  parse arg sExp +1 sValue
+  parse arg sExp +1 sFraction
   if bitand(sExp,'10000000'b) = '10000000'b
   then sSign = '-'
   else sSign = '+'
   nExp = c2d(bitand(sExp,'01111111'b))-64
-  xValue = c2x(sValue)
-  nScale = verify(xValue,'0','NOMATCH') - 1
+  xFraction = c2x(sFraction)
+  nScale = verify(xFraction,'0','NOMATCH') - 1
   if nScale < 0 then nScale = 14
   if nScale > 0
   then sScale = 'S'nScale
   else sScale = ''
-  nValue = c2d(sValue)*(16**(nExp-14))
+  nValue = c2d(sFraction)*(16**(nExp-14))
   sValue = sSign || strip(format(nValue,,18,2,0))
 return 'DH'sScale"'"sValue"'"
+
+doShortBinFloat: procedure expose g.
+  parse arg sData 0 sField +4 sRest
+  if length(sField) = 4
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',bfp(xField,'EB'),x(xField),g.0XLOC8 xField
+    call nextLoc +4
+    sData = sRest
+  end
+  else sData = doHex(sData)
+return sData
+
+doLongBinFloat: procedure expose g.
+  parse arg sData 0 sField +8 sRest
+  if length(sField) = 8
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',bfp(xField,'DB'),x(xField),g.0XLOC8 xField
+    call nextLoc +8
+    sData = sRest
+  end
+  else sData = doHex(sData)
+return sData
+
+bfp: procedure expose g. /* Binary Floating Point */
+  parse arg xField,sType
+  sStem = '0'sType
+  sSpecialValue = g.sStem.xField
+  if sSpecialValue <> ''
+  then return sType"'"sSpecialValue"'"
+  nField = length(xField)
+  select
+    when nField = 8 then do  /* Short */
+      nExpBits = 8
+      nFracBits = 23
+      nBias = 127
+      nPrec = 6
+    end
+    when nField = 16 then do /* Long */
+      nExpBits = 11
+      nFracBits = 52
+      nBias = 1023
+      nPrec = 14
+    end
+    otherwise do             /* Extended */
+      nExpBits = 15
+      nFracBits = 112
+      nBias = 16383
+      nPrec = 28
+    end
+  end
+  bField = x2b(xField)
+  parse var bField bSign +1 bBiasedExp +(nExpBits) bFrac
+  nBiasedExp = b2d(bBiasedExp)
+  bAllOnes = pos('0',bBiasedExp) = 0
+  if nBiasedExp \= 0 & \bAllOnes
+  then bFrac = '1'bFrac
+  nExp = nBiasedExp-nBias
+  nValue = b2d(bFrac) * 2**(nExp-nFracBits)
+  sValue = translate(bSign,'+-','01')format(nValue,,nPrec,,0)
+return sType"'"sValue"'"
+
+c2b: procedure
+  parse arg sValue
+return x2b(c2x(sValue))
+
+b2d: procedure
+  parse arg bValue
+return x2d(b2x(bValue))
 
 doUnspecified: procedure expose g.
   parse arg sData 0 s4 +4
@@ -2176,6 +2254,8 @@ doUnspecified: procedure expose g.
         when sType = 'P'  then sTemp = doPacked(sField)
         when sType = 'E'  then sTemp = doShortHexFloat(sField)
         when sType = 'D'  then sTemp = doLongHexFloat(sField)
+        when sType = 'EB' then sTemp = doShortBinFloat(sField)
+        when sType = 'DB' then sTemp = doLongBinFloat(sField)
         otherwise              sTemp = doHex(sField)
       end
     end
@@ -5434,4 +5514,5 @@ DD  F7FCFF3FCFF3FCFF  -(MAX)
 DD  F800000000000000  -(INF)
 DD  FC00000000000000  -(NAN)
 DD  FE00000000000000  -(SNAN)
+END-FP-CONSTANTS
 */
