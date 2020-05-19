@@ -3166,6 +3166,13 @@ prolog:
     parse var sLine xSVC sZOSSVC
     call addSVC xSVC,sZOSSVC
   end
+  do i = i while sourceline(i) <> 'BEGIN-FP-CONSTANTS'
+  end
+  do i = i+1 while sourceline(i) <> 'END-FP-CONSTANTS'
+    sLine = sourceline(i)
+    parse var sLine sType xValue sValue .
+    interpret 'g.0'sType'.xValue = sValue'
+  end
   /* Default length of assembler data types */
   g.0LEN.A = 4
   g.0LEN.B = 1
@@ -5333,4 +5340,98 @@ CA  z/VM CMS Command
 CB  z/VM CMS Command
 CC  z/VM CMSCALL
 END-SVC-LIST
+
+The following table is used to translate floating point special values into
+nominal values that can be assemblred by HLASM. Strictly, +/-0 are not special
+values, but they are common enough to translate directly rather than perform
+an elaborate conversion.
+
+.-- Type (t) and Type Extension(e)
+|   EH = Short Hex Floating Point (HFP)
+|   EB = Short Binary Floating Point (BFP)
+|   ED = Short Decimal Floating Point (DFP)
+|   DH = Long Hex Floating Point (HFP)
+|   DB = Long Binary Floating Point (BFP)
+|   DD = Long Decimal Floating Point (DFP)
+|
+V
+te  Value             Nominal value
+--  ----------------  -------------
+BEGIN-FP-CONSTANTS
+EH  00000000          +0
+EH  00000001          +(DMIN)        Minimum denormalized HFP number
+EH  00100000          +(MIN)         Minimum HFP number
+EH  7FFFFFFF          +(MAX)         Maximum HFP number
+EH  80000000          -0
+EH  80100000          -(MIN)
+EH  80000001          -(DMIN)
+EH  FFFFFFFF          -(MAX)
+EB  00000000          +0
+EB  00000001          +(DMIN)        Minimum subnormal BFP number
+EB  00800000          +(MIN)
+EB  7F7FFFFF          +(MAX)
+EB  7F800000          +(INF)         Infinity
+EB  7FA00000          +(SNAN)        Signaling Not-A-Number
+EB  7FC00000          +(NAN)         Not-A-Number
+EB  7FE00000          +(QNAN)        Quiet Not-A-Number
+EB  80000000          -0
+EB  80000001          -(DMIN)
+EB  80800000          -(MIN)
+EB  FF7FFFFF          -(MAX)
+EB  FF800000          -(INF)
+EB  FFA00000          -(SNAN)
+EB  FFC00000          -(NAN)
+EB  FFE00000          -(QNAN)
+ED  22500000          +0
+ED  00000001          +(DMIN)        Minimum subnormal DFP number
+ED  04000000          +(MIN)
+ED  77F3FCFF          +(MAX)
+ED  78000000          +(INF)
+ED  7C000000          +(NAN)
+ED  7E000000          +(SNAN)
+ED  A2500000          -0
+ED  80000001          -(DMIN)
+ED  84000000          -(MIN)
+ED  F7F3FCFF          -(MAX)
+ED  F8000000          -(INF)
+ED  FC000000          -(NAN)
+ED  FE000000          -(SNAN)
+DH  0000000000000000  +0
+DH  0000000000000001  +(DMIN)
+DH  0010000000000000  +(MIN)
+DH  7FFFFFFFFFFFFFFF  +(MAX)
+DH  8000000000000000  -0
+DH  8000000000000001  -(DMIN)
+DH  8010000000000000  -(MIN)
+DH  FFFFFFFFFFFFFFFF  -(MAX)
+DB  0000000000000000  +0
+DB  0000000000000001  +(DMIN)
+DB  0010000000000000  +(MIN)
+DB  7FEFFFFFFFFFFFFF  +(MAX)
+DB  7FF0000000000000  +(INF)
+DB  7FF4000000000000  +(SNAN)
+DB  7FF8000000000000  +(NAN)
+DB  7FFC000000000000  +(QNAN)
+DB  8000000000000000  -0
+DB  8000000000000001  -(DMIN)
+DB  8010000000000000  -(MIN)
+DB  FFEFFFFFFFFFFFFF  -(MAX)
+DB  FFF0000000000000  -(INF)
+DB  FFF4000000000000  -(SNAN)
+DB  FFF8000000000000  -(NAN)
+DB  FFFC000000000000  -(QNAN)
+DD  2238000000000000  +0
+DD  0000000000000001  +(DMIN)
+DD  0400000000000000  +(MIN)
+DD  77FCFF3FCFF3FCFF  +(MAX)
+DD  7800000000000000  +(INF)
+DD  7C00000000000000  +(NAN)
+DD  7E00000000000000  +(SNAN)
+DD  A238000000000000  -0
+DD  8000000000000001  -(DMIN)
+DD  8400000000000000  -(MIN)
+DD  F7FCFF3FCFF3FCFF  -(MAX)
+DD  F800000000000000  -(INF)
+DD  FC00000000000000  -(NAN)
+DD  FE00000000000000  -(SNAN)
 */
