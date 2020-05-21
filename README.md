@@ -338,6 +338,12 @@ immediately before the hex to which they apply:
     | `A` | Address   |4| `AL4(L304)` |
     | `B` | Binary    |1| `B'10110011'` |
     | `C` | Character |n| `CL9'Some text'` |
+    | `D` | Long Hex Float |8| `D'+3.141592653589793'` |
+    | `DB`| Long Bin Float |8| `D'+(MAX)'` |
+    | `DD`| Long Dec Float |8| `D'+(NAN)'` |
+    | `E` | Short Hex Float |4| `D'+3.14159'` |
+    | `EB`| Short Bin Float |4| `D'+(MAX)'` |
+    | `ED`| Short Dec Float |4| `D'+(NAN)'` |
     | `F` | Fullword  |4| `F'304'` |
     | `H` | Halfword  |2| `H'304'` |
     | `P` | Packed    |n| `PL2'304'` |
@@ -371,6 +377,12 @@ immediately before the hex to which they apply:
     | `A` | Address   |4|
     | `B` | Binary    |1|
     | `C` | Character |1|
+    | `D` | Long Hex Float |8|
+    | `DB`| Long Bin Float |8|
+    | `DD`| Long Dec Float |8|
+    | `E` | Short Hex Float |4|
+    | `EB`| Short Bin Float |4|
+    | `ED`| Short Dec Float |4|
     | `F` | Fullword  |4|
     | `H` | Halfword  |2|
     | `P` | Packed    |1|
@@ -438,14 +450,14 @@ immediately before the hex to which they apply:
 
     ```
     (%AL1=len CL:$len+1).
-    18 C1E4 E2E3D9C1 D3C9C1D5 40C3C1D7 C9E3C1D3 40E3C5D9 D9C9E3D6 D9E8
-    0E D5C5 E640E2D6 E4E3C840 E6C1D3C5 E2
-    11 D5D6 D9E3C8C5 D9D540E3 C5D9D9C9 E3D6D9E8
-    09 D8E4 C5C5D5E2 D3C1D5C4
-    0E E2D6 E4E3C840 C1E4E2E3 D9C1D3C9 C1
-    07 E3C1 E2D4C1D5 C9C1
-    07 E5C9 C3E3D6D9 C9C1
-    10 E6C5 E2E3C5D9 D540C1E4 E2E3D9C1 D3C9C1
+    18 C1E4E2E3 D9C1D3C9 C1D540C3 C1D7C9E3 C1D340E3 C5D9D9C9 E3D6D9E8
+    0E D5C5E640 E2D6E4E3 C840E6C1 D3C5E2
+    11 D5D6D9E3 C8C5D9D5 40E3C5D9 D9C9E3D6 D9E8
+    09 D8E4C5C5 D5E2D3C1 D5C4
+    0E E2D6E4E3 C840C1E4 E2E3D9C1 D3C9C1
+    07 E3C1E2D4 C1D5C9C1
+    07 E5C9C3E3 D6D9C9C1
+    10 E6C5E2E3 C5D9D540 C1E4E2E3 D9C1D3C9 C1
     ```
     ...(spaces again inserted for clarity) will be disassembled as:
     ```
@@ -643,7 +655,7 @@ immediately before the hex to which they apply:
 * ## (*label*)
     Assigns an assembler label to the following code or
     data. You may use it to name a CSECT for example.
-    The label cannot be `R0` to `R15`, or `A`, `B`, `C`, `D`, `F`, `H`, `P`, `S` or
+    The label cannot be `R0` to `R15`, or `A`, `B`, `C`, `D`, `DB`, `DD`, `E`, `EB`, `ED`, `F`, `H`, `P`, `S` or
     `X` as those have special meanings as described above.
     The maximum length of a label assigned in this way
     is 8 (for pragmatic reasons).

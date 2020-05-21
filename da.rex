@@ -1257,7 +1257,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C D DB E EB F H P S X') then do /* (x) data type   */
+      | inset(sTag,'A B C D E F H P S X EB ED DB DD') then do
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1866,8 +1866,10 @@ decodeDataField: procedure expose g.
     when g.0TYPE = 'X'  then sData = doHex(sData)
     when g.0TYPE = 'E'  then sData = doShortHexFloat(sData)
     when g.0TYPE = 'D'  then sData = doLongHexFloat(sData)
-    when g.0TYPE = 'EB'  then sData = doShortBinFloat(sData)
-    when g.0TYPE = 'DB'  then sData = doLongBinFloat(sData)
+    when g.0TYPE = 'EB' then sData = doShortBinFloat(sData)
+    when g.0TYPE = 'DB' then sData = doLongBinFloat(sData)
+    when g.0TYPE = 'ED' then sData = doShortDecFloat(sData)
+    when g.0TYPE = 'DD' then sData = doLongDecFloat(sData)
     otherwise                sData = doUnspecified(sData)
   end
 return sData
@@ -2214,6 +2216,119 @@ return x2b(c2x(sValue))
 b2d: procedure
   parse arg bValue
 return x2d(b2x(bValue))
+
+doShortDecFloat: procedure expose g.
+  parse arg sData 0 sField +4 sRest
+  if length(sField) = 4
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',dfp(xField,'ED'),x(xField),g.0XLOC8 xField
+    call nextLoc +4
+    sData = sRest
+  end
+  else sData = doHex(sData)
+return sData
+
+doLongDecFloat: procedure expose g.
+  parse arg sData 0 sField +8 sRest
+  if length(sField) = 8
+  then do
+    xField = c2x(sField)
+    call saveStmt 'DC',dfp(xField,'DD'),x(xField),g.0XLOC8 xField
+    call nextLoc +8
+    sData = sRest
+  end
+  else sData = doHex(sData)
+return sData
+
+dfp: procedure expose g. /* Decimal Floating Point */
+  parse arg xField,sType
+  sStem = '0'sType
+  sSpecialValue = g.sStem.xField
+  if sSpecialValue <> ''
+  then return sType"'"sSpecialValue"'"
+  nField = length(xField)
+  select
+    when nField = 8 then do  /* Short */
+      nRBE = 6               /* Remaining Biased Exponent bits */
+      nBias = 101            /* Right-Units View (RUV) exponent bits */
+    end
+    when nField = 16 then do /* Long */
+      nRBE = 8
+      nBias = 398
+    end
+    otherwise do             /* Extended */
+      nRBE = 11
+      nBias = 12287
+    end
+  end
+  bField = x2b(xField)
+  parse var bField bSign +1 b12 +2 b34 +2 4 b345 +3 bRBE +(nRBE) bSignificand
+  if b12 = '11'
+  then do
+    nBiasedExp = b2d(b34 || bRBE)
+    if right(b345,1) = 0
+    then nLMD = 8            /* Left Most Digit */
+    else nLMD = 9
+  end
+  else do
+    nBiasedExp = b2d(b12 || bRBE)
+    nLMD = b2d(b345)
+  end
+  nExp = nBiasedExp-nBias
+  nDeclets = declets(bSignificand)
+  nValue = (nLMD||nDeclets) * 10**nExp
+  sValue = translate(bSign,'+-','01')format(nValue)
+return sType"'"sValue"'"
+
+declets: procedure
+  parse arg bSignificand
+  nValue = ''
+  do i = 1 to length(bSignificand) by 10
+    nDeclet = declet(substr(bSignificand,i,10))
+    nValue = nValue || nDeclets
+  end
+return nValue
+
+declet: procedure /* Convert 10 bits into three decimal digits */
+  /* This unpacks the IEEE754 decimal floating point "Densely Packed Decimal"
+     format as tabulated in Figure 20-33 "DPD-to-Decimal Mapping" of the IBM
+     z/Architecture Principles of Operations manual (SA22-7832-12).
+  */
+  parse arg abc +3 def +3 ghij 3 c +1 6 f +1 10 j +1
+  select
+    when ghij <= '1001' then sDeclet = b2d(abc)b2d(def)b2d(ghij) /* nnn */
+    when ghij = '1010' then do
+      if f = '1'
+      then sDeclet = b2d(abc)'9'b2d(def)-1                 /*  n9n */
+      else sDeclet = b2d(abc)'8'b2d(def)                   /*  n8n */
+    end
+    when ghij = '1011' then do
+      if f = '1'
+      then sDeclet = b2d(abc)'9'b2d(def)                   /*  n9n */
+      else sDeclet = b2d(abc)'8'b2d(def)+1                 /*  n8n */
+    end
+    when ghij = '1100' then do
+      if c = '1'
+      then sDeclet = '9'b2d(def)b2d(abc)-1                 /*  9nn */
+      else sDeclet = '8'b2d(def)b2d(abc)                   /*  8nn */
+    end
+    when ghij = '1101' then do
+      if c = '1'
+      then sDeclet = '9'b2d(def)b2d(abc)                   /*  9nn */
+      else sDeclet = '8'b2d(def)b2d(abc)+1                 /*  8nn */
+    end
+    otherwise do
+      parse arg 1 ab +2 4 de +2
+      select
+        when de = '00' then sDeclet = 8+c||8+f||b2d(ab||j) /* [89][89]n    */
+        when de = '01' then sDeclet = 8+c||b2d(ab||f)8+j   /* [89]n[89]    */
+        when de = '10' then sDeclet = b2d(abc)8+f||8+j     /* n[89][89]    */
+        otherwise           sDeclet = 8+c||8+f||8+j        /* [89][89][89] */
+      end
+    end
+  end
+return sDeclet
 
 doUnspecified: procedure expose g.
   parse arg sData 0 s4 +4
