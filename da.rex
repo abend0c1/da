@@ -569,6 +569,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200522 AA  Added ED and DD tags for Decimal Floating **
+**                         Point (DFP) constants.                    **
 **            20200511 AA  Major overhaul for version 2.0.           **
 **                         Reworked the way that opcodes are deter-  **
 **                         mined.                                    **
