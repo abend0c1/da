@@ -295,17 +295,26 @@ BEGIN-JCL-COMMENTS
 **    (x)       Converts the following data to data type x, where    **
 **              x can be one of the following:                       **
 **                                                                   **
-**              x Type      Length   Generates (for example)         **
-**              - -------   ------   ------------------------------- **
-**              A Address   4        AL4(L304)                       **
-**              B Binary    1        B'10110011'                     **
-**              C Character n        CL9'Some text'                  **
-**              F Fullword  4        F'304'                          **
-**              H Halfword  2        H'304'                          **
-**              P Packed    n        PL2'304'                        **
-**              S S-type    2        S(X'020'(R12))                  **
-**              X Hex       n        XL2'0304'                       **
-**                                                                   **
+**              x  Type            Length   Generates (for example)  **
+**              -- -------         ------   ------------------------ **
+**              A  Address         4        AL4(L304)                **
+**              AD Address (Long)  4        AD(L304)                 **
+**              B  Binary          1        B'10110011'              **
+**              C  Character       n        CL9'Some text'           **
+**              D  Long Hex Float  8        D'3.141592653589793'     **
+**              DH Long Hex Float  8        DH'3.141592653589793'    **
+**              DB Long Bin Float  8        DB'3.141592653589793'    **
+**              DD Long Dec Float  8        DD'3.141592653589793'    **
+**              E  Short Hex Float 4        E'3.1415926'             **
+**              EH Short Hex Float 4        EH'3.1415926'            **
+**              EB Short Bin Float 4        EB'3.1415926'            **
+**              ED Short Dec Float 4        ED'3.1415926'            **
+**              FD Doubleword      8        FD'304'                  **
+**              F  Fullword        4        F'304'                   **
+**              H  Halfword        2        H'304'                   **
+**              P  Packed          n        PL2'304'                 **
+**              S  S-type          2        S(X'020'(R12))           **
+**              X  Hex             n        XL2'0304'                **
 **                                                                   **
 **    (%formatspec)                                                  **
 **                                                                   **
@@ -326,16 +335,26 @@ BEGIN-JCL-COMMENTS
 **              default type is X (hexadecimal). The default length_ **
 **              modifier depends on the type as follows:             **
 **                                                                   **
-**              x Type      Length                                   **
-**              - -------   ------                                   **
-**              A Address   4                                        **
-**              B Binary    1                                        **
-**              C Character 1                                        **
-**              F Fullword  4                                        **
-**              H Halfword  2                                        **
-**              P Packed    1                                        **
-**              S S-type    2                                        **
-**              X Hex       1                                        **
+**              x  Type            Length                            **
+**              -- -------         ------                            **
+**              A  Address         4                                 **
+**              AD Address (long)  4                                 **
+**              B  Binary          1                                 **
+**              D  Long Hex Float  8                                 **
+**              DH Long Hex Float  8                                 **
+**              DB Long Bin Float  8                                 **
+**              DD Long Dec Float  8                                 **
+**              E  Short Hex Float 4                                 **
+**              EH Short Hex Float 4                                 **
+**              EB Short Bin Float 4                                 **
+**              ED Short Dec Float 4                                 **
+**              FD Doubleword      8                                 **
+**              C  Character       1                                 **
+**              F  Fullword        4                                 **
+**              H  Halfword        2                                 **
+**              P  Packed          1                                 **
+**              S  S-type          2                                 **
+**              X  Hex             1                                 **
 **                                                                   **
 **              If you specify an unsupported data type then the     **
 **              default format of X is used. As a happy side effect, **
@@ -832,24 +851,14 @@ trace o
       when sOp = 'DC' &,       /* A constant, and...                     */
            g.0CLENG.xLoc <> '' /* An instruction specified its length    */
       then do
-        sType = left(sOperand,1)
-        if sType = 'A'
-        then parse var sOperand 'A'nLen'('sValue')'        /* A() syntax */
-        else parse var sOperand (sType) nLen"'"sValue"'"   /* X'' syntax */
-        if left(nLen,1) = 'L'
-        then nLen = substr(nLen,2)
-        else do
-          if nLen = ''
-          then do
-            select
-              when sType = 'A' then nLen = 4
-              when sType = 'F' then nLen = 4
-              when sType = 'H' then nLen = 2
-              when sType = 'S' then nLen = 2
-              otherwise nLen = 1
-            end
-          end
-        end
+        if pos('(',sOperand) > 0
+        then parse var sOperand sType'('sValue')'   /* A() style syntax  */
+        else parse var sOperand sType"'"sValue"'"   /* X'' style syntax  */
+        parse var sType sType'L'nLen
+        if pos('S',sType) > 0         /* If scale factor is present      */
+        then parse var sType sType'S' /* Remove it                       */
+        if nLen = ''                  /* If length modifier is absent    */
+        then nLen = g.0MAXLEN.sType   /* Use default length for this type*/
         if g.0CLENG.xLoc \= nLen
         then do
           /* Use the label from the existing statement */
@@ -2083,8 +2092,16 @@ sLoc: procedure expose g.
 return nLoc
 
 doHex: procedure expose g.
-  parse arg sField +24 sData
-  sTemp = doBin(xField)
+  parse arg sData
+  do while length(sData) > 0
+    parse var sData sField +24 sData /* 24 bytes at a time */
+    xField = c2x(sField)
+    nField = length(sField)
+    if nField <= 6
+    then call saveStmt 'DC',xl(xField),,g.0XLOC8 xField
+    else call saveStmt 'DC',xl(xField),,g.0XLOC8
+    call nextLoc +(nField)
+  end
 return sData
 
 doShortHexFloat: procedure expose g.
@@ -2371,8 +2388,12 @@ doUnspecified: procedure expose g.
         when sType = 'P'  then sTemp = doPacked(sField)
         when sType = 'E'  then sTemp = doShortHexFloat(sField)
         when sType = 'D'  then sTemp = doLongHexFloat(sField)
+        when sType = 'EH' then sTemp = doShortHexFloat(sField)
+        when sType = 'DH' then sTemp = doLongHexFloat(sField)
         when sType = 'EB' then sTemp = doShortBinFloat(sField)
         when sType = 'DB' then sTemp = doLongBinFloat(sField)
+        when sType = 'ED' then sTemp = doShortDecFloat(sField)
+        when sType = 'DD' then sTemp = doLongDecFloat(sField)
         otherwise              sTemp = doHex(sField)
       end
     end
@@ -3406,6 +3427,12 @@ prolog:
   call addType 'AD',8
   call addType 'D',8
   call addType 'E',4
+  call addType 'DH',8
+  call addType 'EH',4
+  call addType 'DB',8
+  call addType 'EB',4
+  call addType 'DD',8
+  call addType 'ED',4
   /* Compare Immediate and Branch extended mnemonic suffixes */
                                 /* Equal             */
                                 /* |Low              */
