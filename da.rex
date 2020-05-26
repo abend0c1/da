@@ -588,6 +588,9 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200525 AA  Implemented equates for Element Size and  **
+**                         Floating Point Format in vector instruc-  **
+**                         tions.                                    **
 **            20200522 AA  Added ED and DD tags for Decimal Floating **
 **                         Point (DFP) constants.                    **
 **            20200511 AA  Major overhaul for version 2.0.           **
@@ -1171,6 +1174,28 @@ generateTestBed: procedure expose g.
   do i = 0 to 31
     call emit left('V'i,8) 'EQU   'i
   end
+  call emit '*'
+  call emit '* Vector element size equates'
+  call emit '*'
+  do i = 0 to 15
+    x = d2x(i)
+    sEquate = g.0VES.x
+    if sEquate <> ''
+    then do
+      call emit left(sEquate,12) 'EQU   'i
+    end
+  end
+  call emit '*'
+  call emit '* Vector floating point format equates'
+  call emit '*'
+  do i = 0 to 15
+    x = d2x(i)
+    sEquate = g.0FPF.x
+    if sEquate <> ''
+    then do
+      call emit left(sEquate,13) 'EQU   'i
+    end
+  end
   call emit '         END'
   call epilog
 return
@@ -1556,6 +1581,24 @@ saveRegisterEquates:
     call saveCommentBlock 'Vector register equates'
     do i = 0 to 31
       call save left('V'i,8) 'EQU   'i
+    end
+    call saveCommentBlock 'Vector element size equates'
+    do i = 0 to 15
+      x = d2x(i)
+      sEquate = g.0VES.x
+      if sEquate <> ''
+      then do
+        call emit left(sEquate,12) 'EQU   'i
+      end
+    end
+    call saveCommentBlock 'Vector floating point format equates'
+    do i = 0 to 15
+      x = d2x(i)
+      sEquate = g.0FPF.x
+      if sEquate <> ''
+      then do
+        call emit left(sEquate,13) 'EQU   'i
+      end
     end
   end
 return
@@ -2121,6 +2164,8 @@ return sData
 
 eh: procedure expose g.
   parse arg sExp +1 sFraction
+  if sFraction = '000000'x
+  then return x(c2x(sExp)'000000')
   if bitand(sExp,'10000000'b) = '10000000'b
   then sSign = '-'
   else sSign = '+'
@@ -2152,6 +2197,8 @@ return sData
 
 dh: procedure expose g.
   parse arg sExp +1 sFraction
+  if sFraction = '00000000000000'x
+  then return x(c2x(sExp)'00000000000000')
   if bitand(sExp,'10000000'b) = '10000000'b
   then sSign = '-'
   else sSign = '+'
@@ -3157,6 +3204,20 @@ v: procedure expose g.  /* 1-nibble vector register V0 to V31        */
   g.0VECTOR = 1   /* Remember to emit vector register equeates later */
 return 'V'x2d(xData)
 
+ves: procedure expose g.  /* Vector element size */
+  arg xData .
+  sEquate = g.0VES.xData
+  if sEquate = ''
+  then sEquate = x2d(xData)
+return sEquate
+
+fpf: procedure expose g.  /* Vector floating point format */
+  arg xData .
+  sEquate = g.0FPF.xData
+  if sEquate = ''
+  then sEquate = x2d(xData)
+return sEquate
+
 x: procedure   /* Hexadecimal */
   arg xData .
 return "X'"xData"'"
@@ -3391,6 +3452,17 @@ prolog:
     parse var sLine sType xValue sValue .
     interpret 'g.0'sType'.xValue = sValue'
   end
+  /* Vector element size equates */
+  g.0VES.0 = 'V_BYTE'
+  g.0VES.1 = 'V_HALFWORD'
+  g.0VES.2 = 'V_WORD'
+  g.0VES.3 = 'V_DOUBLEWORD'
+  g.0VES.4 = 'V_QUADWORD'
+  g.0VES.6 = 'V_WORD_LEFT'
+  /* Vector floating point format equates */
+  g.0FPF.2 = 'V_SHORT_FP'
+  g.0FPF.3 = 'V_LONG_FP'
+  g.0FPF.4 = 'V_EXTENDED_FP'
   /* Default length of assembler data types */
   g.0LEN.A = 4
   g.0LEN.B = 1
@@ -4050,15 +4122,15 @@ VRIa   . v(V1) u(I2)
 VRIa3 12 O1 +2 V1 +1     . +1  I2 +4  M3 +1                    RXB +1 O2 +2
 VRIa3  . v(V1) s4(I2) u(M3)
 VRIb  12 O1 +2 V1 +1     . +1  I2 +2  I3 +2  M4 +1             RXB +1 O2 +2
-VRIb   . v(V1) u(I2) u(I3) u(M4)
+VRIb   . v(V1) u(I2) u(I3) ves(M4)
 VRIc  12 O1 +2 V1 +1    V3 +1  I2 +4         M4 +1             RXB +1 O2 +2
 VRIc   . v(V1) v(V3) u(I2) m(M4)
 VRId  12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  I4 +2  . +1       RXB +1 O2 +2
 VRId   . v(V1) v(V2) v(V3) u(I4)
 VRId5 12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  I4 +2 M5 +1       RXB +1 O2 +2
-VRId5  . v(V1) v(V2) v(V3) u(I4) u(M5)
+VRId5  . v(V1) v(V2) v(V3) u(I4) ves(M5)
 VRIe  12 O1 +2 V1 +1    V2 +1  I3 +3         M5 +1 M4 +1       RXB +1 O2 +2
-VRIe   . v(V1) v(V2) u(I3) u(M4) m(M5)
+VRIe   . v(V1) v(V2) u(I3) fpf(M4) m(M5)
 VRIf  12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M5 +1 I4 +2       RXB +1 O2 +2
 VRIf   . v(V1) v(V2) v(V3) u(I4) m(M5)
 VRIg  12 O1 +2 V1 +1    V2 +1  I4 +2  M5 +1        I3 +2       RXB +1 O2 +2
@@ -4074,31 +4146,31 @@ VRRa2  . v(V1) v(V2) m(M3)      om(M5)
 VRRa3 12 O1 +2 V1 +1    V2 +1   . +4               M3 +1       RXB +1 O2 +2
 VRRa3  . v(V1) v(V2) m(M3)
 VRRa4 12 O1 +2 V1 +1    V2 +1   . +3         M4 +1 M3 +1       RXB +1 O2 +2
-VRRa4  . v(V1) v(V2) u(M3) m(M4)
+VRRa4  . v(V1) v(V2) fpf(M3) m(M4)
 VRRa5 12 O1 +2 V1 +1    V2 +1   . +2  M5 +1  M4 +1 M3 +1       RXB +1 O2 +2
-VRRa5  . v(V1) v(V2) u(M3) m(M4) u(M5)
+VRRa5  . v(V1) v(V2) fpf(M3) m(M4) u(M5)
 VRRb  12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M5 +1  . +1 M4 +1 RXB +1 O2 +2
-VRRb   . v(V1) v(V2) v(V3) u(M4) m(M5)
+VRRb   . v(V1) v(V2) v(V3) ves(M4) m(M5)
 VRRb4 12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M5 +1  . +1 M4 +1 RXB +1 O2 +2
-VRRb4  . v(V1) v(V2) v(V3) u(M4) om(M5)
+VRRb4  . v(V1) v(V2) v(V3) ves(M4) om(M5)
 VRRc3 12 O1 +2 V1 +1    V2 +1  V3 +1   . +4                    RXB +1 O2 +2
 VRRc3  . v(V1) v(V2) v(V3)
 VRRc4 12 O1 +2 V1 +1    V2 +1  V3 +1   . +3              M4 +1 RXB +1 O2 +2
-VRRc4  . v(V1) v(V2) v(V3) u(M4)
+VRRc4  . v(V1) v(V2) v(V3) ves(M4)
 VRRc5 12 O1 +2 V1 +1    V2 +1  V3 +1   . +2        M5 +1 M4 +1 RXB +1 O2 +2
-VRRc5  . v(V1) v(V2) v(V3) u(M4) m(M5)
+VRRc5  . v(V1) v(V2) v(V3) fpf(M4) m(M5)
 VRRc6 12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M6 +1 M5 +1 M4 +1 RXB +1 O2 +2
-VRRc6  . v(V1) v(V2) v(V3) u(M4) m(M5) m(M6)
+VRRc6  . v(V1) v(V2) v(V3) ves(M4) m(M5) m(M6)
 VRRd  12 O1 +2 V1 +1    V2 +1  V3 +1  M5 +1   . +2       V4 +1 RXB +1 O2 +2
-VRRd   . v(V1) v(V2) v(V3) v(V4) u(M5)
+VRRd   . v(V1) v(V2) v(V3) v(V4) ves(M5)
 VRRd5 12 O1 +2 V1 +1    V2 +1  V3 +1  M5 +1  M6 +1  . +1 V4 +1 RXB +1 O2 +2
-VRRd5  . v(V1) v(V2) v(V3) v(V4) u(M5) om(M6)
+VRRd5  . v(V1) v(V2) v(V3) v(V4) ves(M5) om(M6)
 VRRd6 12 O1 +2 V1 +1    V2 +1  V3 +1  M5 +1  M6 +1  . +1 V4 +1 RXB +1 O2 +2
-VRRd6  . v(V1) v(V2) v(V3) v(V4) u(M5) m(M6)
+VRRd6  . v(V1) v(V2) v(V3) v(V4) ves(M5) m(M6)
 VRRe  12 O1 +2 V1 +1    V2 +1  V3 +1   . +3              V4 +1 RXB +1 O2 +2
 VRRe   . v(V1) v(V2) v(V3) v(V4)
 VRRe6 12 O1 +2 V1 +1    V2 +1  V3 +1  M6 +1   . +1 M5 +1 V4 +1 RXB +1 O2 +2
-VRRe6  . v(V1) v(V2) v(V3) v(V4) m(M5) u(M6)
+VRRe6  . v(V1) v(V2) v(V3) v(V4) m(M5) fpf(M6)
 VRRf  12 O1 +2 V1 +1    R2 +1  R3 +1   . +4                    RXB +1 O2 +2
 VRRf   . v(V1) r(R2) r(R3)
 VRRg  12 O1 +2  . +1    V1 +1   . +5                           RXB +1 O2 +2
@@ -4108,13 +4180,13 @@ VRRh   . v(V1) v(V2) m(M3)
 VRRi  12 O1 +2 R1 +1    V2 +1   . +2  M3 +1   . +2             RXB +1 O2 +2
 VRRi   . r(R1) v(V2) m(M3)
 VRSa  12 O1 +2 V1 +1    V2 +1  B2 +1  D2 +3  M4 +1             RXB +1 O2 +2
-VRSa   . v(V1) v(V3) db(D2,B2) u(M4)
+VRSa   . v(V1) v(V3) db(D2,B2) ves(M4)
 VRSb  12 O1 +2 V1 +1    R3 +1  B2 +1  D2 +3   . +1             RXB +1 O2 +2
 VRSb   . v(V1) r(R3) db(D2,B2)
 VRSb4 12 O1 +2 V1 +1    R3 +1  B2 +1  D2 +3  M4 +1             RXB +1 O2 +2
-VRSb4  . v(V1) r(R3) db(D2,B2) u(M4)
+VRSb4  . v(V1) r(R3) db(D2,B2) ves(M4)
 VRSc  12 O1 +2 R1 +1    V3 +1  B2 +1  D2 +3  M4 +1             RXB +1 O2 +2
-VRSc   . r(R1) v(V3) db(D2,B2) u(M4)
+VRSc   . r(R1) v(V3) db(D2,B2) ves(M4)
 VRSd  12 O1 +2  . +1    R3 +1  B2 +1  D2 +3  V1 +1             RXB +1 O2 +2
 VRSd   . v(V1) r(R3) db(D2,B2)
 VRV   12 O1 +2 V1 +1    V2 +1  B2 +1  D2 +3  M3 +1             RXB +1 O2 +2
@@ -5136,7 +5208,7 @@ VFA     E7E3 VRRc5  . Vector FP Add
 VFD     E7E5 VRRc5  . Vector FP Divide
 VFM     E7E7 VRRc5  . Vector FP Multiply
 VFCE    E7E8 VRRc6  c Vector FP Compare Equal
-VFCHE   E7EA VRRc6  c Vector FP Compare High OR Equal
+VFCHE   E7EA VRRc6  c Vector FP Compare High or Equal
 VFCH    E7EB VRRc6  . Vector FP Compare High
 VFMIN   E7EE VRRc6  . Vector FP Minimum
 VFMAX   E7EF VRRc6  . Vector FP Maximum
