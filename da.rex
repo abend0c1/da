@@ -863,14 +863,17 @@ trace o
         then parse var sOperand sType'('sValue')'   /* A() style syntax  */
         else parse var sOperand sType"'"sValue"'"   /* X'' style syntax  */
         parse var sType sType'L'nLen
-        if pos('S',sType) > 0         /* If scale factor is present      */
-        then parse var sType sType'S' /* Remove it                       */
+        nPos = verify(nLen,'0123456789','NOMATCH')
+        if nPos > 0                   /* If a non-numeric is present     */
+        then nLen = left(nLen,nPos-1) /* Keep only length digits         */
         if nLen = ''                  /* If length modifier is absent    */
         then nLen = g.0MAXLEN.sType   /* Use default length for this type*/
         if g.0CLENG.xLoc \= nLen
         then do
           /* Use the label from the existing statement */
-          call emit left(sLabel,8) 'DC    0XL'g.0CLENG.xLoc
+          sLocType = g.0CTYPE.xLoc
+          if sLocType = '' then sLocType = 'X'
+          call emit left(sLabel,8) 'DC    0'tl(sLocType,g.0CLENG.xLoc)
           g.0STMT.n = overlay(left('',8),g.0STMT.n)
         end
       end
@@ -1299,7 +1302,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C D E F H P S X EB ED DB DD') then do
+      | inset(sTag,'A B C D E F H P S X AD FD EB ED DB DD') then do
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1642,13 +1645,13 @@ saveDSECTs:
         else do
           if nLength <= (d2 - d1)
           then do
-            sFormat = getFormat(sType,nLength)
+            sFormat = dtl(sType,nLength)
             d1 = d1 + nLength
           end
           else do
             if sType = 'X'
             then sFormat = '0XL'nLength
-            else sFormat = '0XL'nLength getFormat(sType,nLength)
+            else sFormat = '0XL'nLength dtl(sType,nLength)
           end
         end
         call save asm(sLabel,'DS' sFormat)
@@ -1658,7 +1661,7 @@ saveDSECTs:
   end
 return
 
-getFormat: procedure expose g.
+dtl: procedure expose g. /* Duplication Type Length (e.g. 2AL4 */
   arg sType,nLen                            /* sType nLen nMax             */
   if nLen = 0 then return '0'sType          /*   A     0    4  --> 0A      */
   nMax = g.0MAXLEN.sType
@@ -1669,6 +1672,17 @@ getFormat: procedure expose g.
   if nRem > 0 then return 'XL'nLen          /*   A     7    4  --> XL7     */
   nDup = nLen % nMax
 return nDup || sType                        /*   A     8    4  --> 2A      */
+
+tl: procedure expose g. /* Type Length (e.g. AL4 */
+  arg sType,nLen                            /* sType nLen nMax             */
+  if nLen = 0 then return sType             /*   A     0    4  --> A       */
+  nMax = g.0MAXLEN.sType
+  if nMax = '' then return sType'L'nLen     /*   C    23       --> CL23    */
+  if nLen = nMax then return sType          /*   A     4    4  --> A       */
+  if nLen < nMax then return sType'L'nLen   /*   A     3    4  --> AL3     */
+  nRem = nLen // nMax
+  if nRem > 0 then return 'XL'nLen          /*   A     7    4  --> XL7     */
+return sType                                /*   A     8    4  --> A       */
 
 asm: procedure
   arg sLabel,sOp sOperands sComment
@@ -1918,22 +1932,28 @@ return g.0SLICE.0
 
 decodeDataField: procedure expose g.
   parse arg sData
+  xLoc = g.0XLOC
+  if g.0TYPE = ''            /* If no explicit tag */
+  then sType = g.0CTYPE.xLoc /* Then use type for this location if any */
+  else sType = g.0TYPE
   select
-    when g.0TYPE = 'A'  then sData = doAddress(sData)
-    when g.0TYPE = 'B'  then sData = doBit(sData)
-    when g.0TYPE = 'C'  then sData = doText(sData)
-    when g.0TYPE = 'F'  then sData = doFullword(sData)
-    when g.0TYPE = 'H'  then sData = doHalfword(sData)
-    when g.0TYPE = 'P'  then sData = doPacked(sData)
-    when g.0TYPE = 'S'  then sData = doSCON(sData)
-    when g.0TYPE = 'X'  then sData = doHex(sData)
-    when g.0TYPE = 'E'  then sData = doShortHexFloat(sData)
-    when g.0TYPE = 'D'  then sData = doLongHexFloat(sData)
-    when g.0TYPE = 'EB' then sData = doShortBinFloat(sData)
-    when g.0TYPE = 'DB' then sData = doLongBinFloat(sData)
-    when g.0TYPE = 'ED' then sData = doShortDecFloat(sData)
-    when g.0TYPE = 'DD' then sData = doLongDecFloat(sData)
-    otherwise                sData = doUnspecified(sData)
+    when sType = 'A'  then sData = doAddress(sData)
+    when sType = 'B'  then sData = doBit(sData)
+    when sType = 'C'  then sData = doText(sData)
+    when sType = 'F'  then sData = doFullword(sData)
+    when sType = 'H'  then sData = doHalfword(sData)
+    when sType = 'P'  then sData = doPacked(sData)
+    when sType = 'S'  then sData = doSCON(sData)
+    when sType = 'X'  then sData = doHex(sData)
+    when sType = 'E'  then sData = doShortHexFloat(sData)
+    when sType = 'D'  then sData = doLongHexFloat(sData)
+    when sType = 'AD' then sData = doAddress8(sData)
+    when sType = 'FD' then sData = doFullword8(sData)
+    when sType = 'EB' then sData = doShortBinFloat(sData)
+    when sType = 'DB' then sData = doLongBinFloat(sData)
+    when sType = 'ED' then sData = doShortDecFloat(sData)
+    when sType = 'DD' then sData = doLongDecFloat(sData)
+    otherwise              sData = doUnspecified(sData)
   end
 return sData
 
@@ -2435,23 +2455,7 @@ doUnspecified: procedure expose g.
       nField = min(nMax,nField)
       parse var sData sField +(nField) sData
       xField = c2x(sField)
-      select
-        when sType = 'A'  then sTemp = doAddress(sField)
-        when sType = 'AD' then sTemp = doAddress8(sField)
-        when sType = 'F'  then sTemp = doFullword(sField)
-        when sType = 'FD' then sTemp = doFullword8(sField)
-        when sType = 'H'  then sTemp = doHalfword(sField)
-        when sType = 'P'  then sTemp = doPacked(sField)
-        when sType = 'E'  then sTemp = doShortHexFloat(sField)
-        when sType = 'D'  then sTemp = doLongHexFloat(sField)
-        when sType = 'EH' then sTemp = doShortHexFloat(sField)
-        when sType = 'DH' then sTemp = doLongHexFloat(sField)
-        when sType = 'EB' then sTemp = doShortBinFloat(sField)
-        when sType = 'DB' then sTemp = doLongBinFloat(sField)
-        when sType = 'ED' then sTemp = doShortDecFloat(sField)
-        when sType = 'DD' then sTemp = doLongDecFloat(sField)
-        otherwise              sTemp = doHex(sField)
-      end
+      sTemp = doType(sType,sField)
     end
   end
 
@@ -2496,6 +2500,29 @@ doUnspecified: procedure expose g.
     end
   end
 return sData
+
+doType: procedure expose g.
+  parse arg sType,sField
+  select
+    when sType = 'A'  then sResidual = doAddress(sField)
+    when sType = 'B'  then sResidual = doBit(sField)
+    when sType = 'C'  then sResidual = doText(sField)
+    when sType = 'F'  then sResidual = doFullword(sField)
+    when sType = 'H'  then sResidual = doHalfword(sField)
+    when sType = 'P'  then sResidual = doPacked(sField)
+    when sType = 'S'  then sResidual = doSCON(sField)
+    when sType = 'X'  then sResidual = doHex(sField)
+    when sType = 'E'  then sResidual = doShortHexFloat(sField)
+    when sType = 'D'  then sResidual = doLongHexFloat(sField)
+    when sType = 'AD' then sResidual = doAddress8(sField)
+    when sType = 'FD' then sResidual = doFullword8(sField)
+    when sType = 'EB' then sResidual = doShortBinFloat(sField)
+    when sType = 'DB' then sResidual = doLongBinFloat(sField)
+    when sType = 'ED' then sResidual = doShortDecFloat(sField)
+    when sType = 'DD' then sResidual = doLongDecFloat(sField)
+    otherwise              sResidual = doUnspecified(sField)
+  end
+return sResidual
 
 doBinary: procedure expose g.
   parse arg sData
