@@ -292,8 +292,8 @@ BEGIN-JCL-COMMENTS
 **              inserted before each STM R14,R12,x(Rn) instruction.  **
 **                                                                   **
 **                                                                   **
-**    (x)       Converts the following data to data type x, where    **
-**              x can be one of the following:                       **
+**    (t)       Converts the following data to data type t, where    **
+**              t can be one of the following:                       **
 **                                                                   **
 **              x  Type            Length   Generates (for example)  **
 **              -- -------         ------   ------------------------ **
@@ -529,7 +529,7 @@ BEGIN-JCL-COMMENTS
 **              Some labels will be automatically created from the   **
 **              External Symbol Dictionary of the AMBLIST output.    **
 **                                                                   **
-**   (.=xxx)    Assigns an automatically named assembler label to    **
+**   (.xxx)     Assigns an automatically named assembler label to    **
 **              location xxx in hexadecimal. Use this if you know in **
 **              advance which locations are referenced by machine    **
 **              instructions so that the location can be represented **
@@ -540,6 +540,10 @@ BEGIN-JCL-COMMENTS
 **              already have a label defined for it. The inserted    **
 **              tags will be taken into account the next time DA is  **
 **              run.                                                 **
+**                                                                   **
+**    (.xxx=t)  Assigns an automatically named assembler label and   **
+**              data type "t" to location xxx. The type can be any   **
+**              of those described above for the (t) tag.            **
 **                                                                   **
 ** 6. Issue DA to disassemble the AMBLIST output being edited.       **
 **    - Spaces in the hex input are not significant (with one        **
@@ -890,16 +894,17 @@ trace o
   /* Insert tags for any undefined labels before the first CSECT */
   if nUndefinedLabels
   then do
-    nNewDots = 0
     do i = sorted.0 to 1 by -1 /* Reverse order so they appear in order! */
       n = sorted.i
       nLoc = g.0REFLOC.n
       xLoc = d2x(nLoc)
       if g.0DEF.nLoc = '' & g.0DOTS.xLoc = '' /* If it is a new undefined label */
       then do
-        nNewDots = nNewDots + 1
         xLoc = d2x(nLoc)
-        'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc')"'
+        sType = g.0CTYPE.xLoc
+        if sType = ''
+        then 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc')"'
+        else 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc'='sType')"'
       end
     end
   end
@@ -1471,25 +1476,23 @@ handleTag: procedure expose g.
         end
       end
     end
+    when sTag1 = '.' then do        /* (.offset[=type]) */
+      parse var sTag '.'xLoc'='sType .
+      if isHex(xLoc) & getLabel(xLoc) = ''
+      then call addDot xLoc
+      else say 'DIS0012W Invalid tag ignored: ('sTag')'
+    end
     otherwise do                    /* (label[=offset]) */
       parse var sTag sLabel'='xLoc .
-      if sLabel = '.'               /* (.=offset) */
-      then do
-        if isHex(xLoc) & getLabel(xLoc) = ''
-        then call addDot xLoc
-        else say 'DIS0012W Tag ignored: ('sTag')'
-      end
-      else do                       /* (label[=offset]) */
-        if isHex(xLoc)
-        then call defLabel sLabel,xLoc
-        else call defLabel sLabel,g.0XLOC
-      end
+      if isHex(xLoc)
+      then call defLabel sLabel,xLoc
+      else call defLabel sLabel,g.0XLOC
     end
   end
 return
 
 addDot: procedure expose g.
-  parse arg xLoc .
+  parse arg xLoc sType .
   nLoc = x2d(xLoc)
   xLoc = d2x(nLoc) /* normalise hex */
   if g.0DOTS.xLoc = ''
@@ -1499,6 +1502,11 @@ addDot: procedure expose g.
     g.0DOT.0 = n
     g.0DOT.n = nLoc
     g.0DOTSORT = 1 /* Indicate sort is needed */
+    if sType <> ''
+    then do
+      g.0CTYPE.xLoc = sType           /* Set pre-defined field type */
+      g.0CLENG.xLoc = g.0MAXLEN.sType /* Set pre-defined field length */
+    end
   end
 return
 
