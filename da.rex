@@ -851,6 +851,7 @@ trace o
        assigned to this location then a 'DC 0XLnn' directive will be
        inserted to cover the entire field referenced by the instruction.
     */
+    sLabel = ''
     if left(g.0STMT.n) = ' '
     then parse var g.0STMT.n        sOp sOperand sDesc 100 .
     else parse var g.0STMT.n sLabel sOp sOperand sDesc 100 .
@@ -2514,33 +2515,33 @@ doBinary: procedure expose g.
         call nextLoc +length(s4)
       end
     end
-    sBin = doBin(sBin)          /* Emit any residual binary */
+    sBin = doBin(sBin)        /* Emit any residual binary */
   end
-  else do while length(sData) > 0
-    parse var sData s16 +16 sData /* 16 bytes at a time */
-    sBin = doBin(s16)
+  else do                     /* Not fullword aligned */
+    do while length(sData) > 0
+      parse var sData sChunk +16 sData /* 16 bytes at a time */
+      do while length(sChunk) > 0
+        sBin = doBin(sChunk)
+      end
+    end
   end
 return ''
 
 doBin: procedure expose g.
   parse arg sField
-  nField = length(sField)
-  if nField > 0
-  then do
-    xField = c2x(sField)
-    if nField <= 6
-    then call saveStmt 'DC',data(xField),,g.0XLOC8 xField
-    else call saveStmt 'DC',data(xField),,g.0XLOC8
-    call nextLoc +(nField)
+  do while length(sField) > 0
+    xLoc = g.0XLOC
+    sLocType = g.0CTYPE.xLoc
+    sField = doType(sLocType,sField)
   end
 return ''
 
 adcon: procedure expose g.
-  parse arg sArg
-  if length(sArg) \= 4 then return ''
-  if sArg = '00000000'x then return ''
-  b31 = bitand(sArg,'80000000'x) = '80000000'x
-  sLoc = bitand(sArg,'7FFFFFFF'x)
+  parse arg sAddr
+  if length(sAddr) \= 4 then return ''
+  if sAddr = '00000000'x then return ''
+  b31 = bitand(sAddr,'80000000'x) = '80000000'x
+  sLoc = bitand(sAddr,'7FFFFFFF'x)
   if sLoc = '00000000'x then return ''
   xLoc = d2x(x2d(c2x(sLoc)))  /* Remove leading zeros */
   sLabel = getLabel(xLoc)
@@ -3209,7 +3210,7 @@ return "X'"xData"'"             /* else return hex                   */
 
 v: procedure expose g.  /* 1-nibble vector register V0 to V31        */
   arg xData .     /* Already has the most significant bit prepended  */
-  g.0VECTOR = 1   /* Remember to emit vector register equeates later */
+  g.0VECTOR = 1   /* Remember to emit vector register equates later  */
 return 'V'x2d(xData)
 
 ves: procedure expose g.  /* Vector element size */
