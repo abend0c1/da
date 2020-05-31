@@ -335,7 +335,7 @@ BEGIN-JCL-COMMENTS
 **              default type is X (hexadecimal). The default length_ **
 **              modifier depends on the type as follows:             **
 **                                                                   **
-**              x  Type            Length                            **
+**              t  Type            Length                            **
 **              -- -------         ------                            **
 **              A  Address         4                                 **
 **              AD Address (long)  4                                 **

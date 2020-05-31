@@ -331,19 +331,23 @@ immediately before the hex to which they apply:
     inserted before each `STM R14,R12,xxxx` instruction.
 
 
-* ## (*x*)
-    Converts subsequent hex to data type *x*, where *x* can be one of the following:
-    | x   | Type      | Length | Generates (for example) |
+* ## (*t*)
+    Converts subsequent hex to data type *t*, where *t* can be one of the following:
+    | t   | Type      | Length | Generates (for example) |
     | --- | ---       | --- | --- |
     | `A` | Address   |4| `AL4(L304)` |
+    | `AD` | Address (Long)  |8| `AD(L304)` |
     | `B` | Binary    |1| `B'10110011'` |
     | `C` | Character |n| `CL9'Some text'` |
     | `D` | Long Hex Float |8| `D'+3.141592653589793'` |
-    | `DB`| Long Bin Float |8| `D'+(MAX)'` |
-    | `DD`| Long Dec Float |8| `D'+(NAN)'` |
-    | `E` | Short Hex Float |4| `D'+3.14159'` |
-    | `EB`| Short Bin Float |4| `D'+(MAX)'` |
-    | `ED`| Short Dec Float |4| `D'+(NAN)'` |
+    | `DH`| Long Hex Float |8| `DH'+3.141592653589793'` |
+    | `DB`| Long Bin Float |8| `DB'+3.141592653589793'` |
+    | `DD`| Long Dec Float |8| `DD'+3.141592653589793'` |
+    | `E` | Short Hex Float |4| `E'+3.1415926'` |
+    | `EH`| Short Hex Float |4| `EH'+3.1415926'` |
+    | `EB`| Short Bin Float |4| `EB'+3.1415926'` |
+    | `ED`| Short Dec Float |4| `ED'+3.1415926'` |
+    | `FD` | Doubleword  |8| `FD'304'` |
     | `F` | Fullword  |4| `F'304'` |
     | `H` | Halfword  |2| `H'304'` |
     | `P` | Packed    |n| `PL2'304'` |
@@ -372,17 +376,21 @@ immediately before the hex to which they apply:
     The default *duplication_factor* (the repetition count for the field) is 1.
     The default *type* is X (hexadecimal).
     The default *length_modifier* depends on the *type* as follows:
-    | x   | Type      | Length |
+    | t   | Type      | Length |
     | --- | ---       | --- |
     | `A` | Address   |4|
+    | `AD` | Address (long)  |8|
     | `B` | Binary    |1|
     | `C` | Character |1|
     | `D` | Long Hex Float |8|
+    | `DH` | Long Hex Float |8|
     | `DB`| Long Bin Float |8|
     | `DD`| Long Dec Float |8|
     | `E` | Short Hex Float |4|
+    | `EH` | Short Hex Float |4|
     | `EB`| Short Bin Float |4|
     | `ED`| Short Dec Float |4|
+    | `FD` | Doubleword  |8|
     | `F` | Fullword  |4|
     | `H` | Halfword  |2|
     | `P` | Packed    |1|
@@ -496,7 +504,7 @@ immediately before the hex to which they apply:
     Printable text is defined:
     * as character constants (`C`).
 
-* ## (@*xxx*)    
+* ## (@*xxx*)
     Specifies that the current location counter is to be
     set to the hex address specified by *xxx*.
     By default the initial location counter is 0.
@@ -695,7 +703,7 @@ immediately before the hex to which they apply:
     Some labels will be automatically created from the
     External Symbol Dictionary of the AMBLIST output.
 
-* ## (.=*xxx*)    
+* ## (.*xxx*)
     Assigns an automatically named assembler label to
     location *xxx* in hexadecimal. 
     
@@ -707,10 +715,15 @@ immediately before the hex to which they apply:
     DA will automatically insert one of these tags into
     the hex input (AMBLIST output) for each location
     referenced by a machine instruction that does not
-    already have a label defined for it. The inserted  
+    already have a label defined for it. The inserted
     tags will be taken into account the next time DA is 
     run. 
     
     This is equivalent to you manually
     inserting '.' action characters to create
     labels that are referenced by machine instructions.
+
+* ## (.*xxx*=*t*)
+    Assigns an automatically named assembler label and
+    data type *t* to location *xxx* in hexadecimal. The
+    type can be any of those described above for the (t) tag.
