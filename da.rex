@@ -2687,7 +2687,7 @@ adcon: procedure expose g.
   b31 = bitand(sAddr,'80000000'x) = '80000000'x
   sLoc = bitand(sAddr,'7FFFFFFF'x)
   if sLoc = '00000000'x then return ''
-  xLoc = d2x(x2d(c2x(sLoc)))  /* Remove leading zeros */
+  xLoc = stripx(c2x(sLoc))  /* Remove leading zeros */
   sLabel = getLabel(xLoc)
   if sLabel = '' then return ''
   call refLabel sLabel,xLoc
@@ -3377,7 +3377,6 @@ return
 
 setLabel: procedure expose g.
   parse arg sLabel,xLoc
-  xLoc = d2x(x2d(xLoc))       /* Remove leading zeros from xLoc */
   g.0LABEL.xLoc = sLabel      /* Assign a label to this location */
   g.0XLOC.sLabel = xLoc       /* Facilitate retrieving location of a label */
 return
