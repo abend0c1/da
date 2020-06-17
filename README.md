@@ -225,9 +225,8 @@ To disassemble a load module:
 
     | Action | Meaning |
     |   ---  | ---     |
-    | `,`    | Scan following hex as CODE and generate a label. <br/>*Remember: Comma=Code* |
-    | `.`    | Scan following hex as DATA and generate a label. <br/>*Remember: Dot=Data* |
-    | <code>&#124;</code>    | Scan following hex as DATA but do NOT generate a label. This can be used to break up data into logical  pieces that do not need to be addressed individually via a label. <br/>*Remember: Bar=Break* |
+    | `,`    | Scan following hex as CODE. <br/>*Remember: Comma=Code* |
+    | `.`    | Scan following hex as DATA. <br/>*Remember: Dot=Data* |
     | `/`    |  Clear all tags and scan the following hex as DATA. This is equivalent to specifying a null tag `()` but saves a keystroke |
 
 1. Optionally, tag the hex more rigorously using **tags** (see the [TAGS](#tags) section below). 
@@ -280,8 +279,8 @@ To disassemble a load module:
 
 1. Examine the "Undefined labels" report at the end of the disassembly to help you 
    identify where to insert CODE and DATA action markers. 
-   Labels will be created at each action marker location 
-   (except for the `|` action marker).
+   Labels will be created at each locatin referenced by a machine
+   instruction or address constant.
 
 1. Press F3 to quit editing the disassembly and return to the
    AMBLIST output - where you can adjust the tags as described
@@ -369,7 +368,7 @@ immediately before the hex to which they apply:
     ```
     or
     ```
-    [type][length_modifier]:length_expression
+    [type]L[length_expression]
     ```
 
     ...for example, `4XL3`.
@@ -448,7 +447,7 @@ immediately before the hex to which they apply:
     to avoid clashes with variables already used by the DA Rexx procedure - 
     containing the contents of the associated field converted to decimal.
     
-    When `:length_expression` is specified, the expression can be any simple Rexx 
+    When `length_expression` is specified, the expression can be any simple Rexx 
     expression that results in a positive whole number. The expression must not contain
     parentheses. You should use variable names you created prefixed with a `$` sign, 
     else the result will be unpredictable.
@@ -457,7 +456,7 @@ immediately before the hex to which they apply:
     one less than the actual length of each string:
 
     ```
-    (%AL1=len CL:$len+1).
+    (%AL1=len CL$len+1).
     18 C1E4E2E3 D9C1D3C9 C1D540C3 C1D7C9E3 C1D340E3 C5D9D9C9 E3D6D9E8
     0E D5C5E640 E2D6E4E3 C840E6C1 D3C5E2
     11 D5D6D9E3 C8C5D9D5 40E3C5D9 D9C9E3D6 D9E8
