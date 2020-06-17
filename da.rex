@@ -2880,6 +2880,11 @@ decodeInst: procedure expose g.
   then g.0CC = left(sFlag,1) /* Instruction type that sets condition code       */
 
   select
+    when sMnemonic = 'DIAG' then do
+      g.0DIAG = 1                     /* Insert a DIAG macro (for z/OS) */
+               /* ...because HLASM does not support a DIAGNOSE mnemonic */
+      call saveStmt sMnemonic,sOperands,sDesc,sOverlay
+    end      
     when sMnemonic = 'L' & X2=0 & B2=0 & D2 = '010' then do
       sDesc = sDesc '-> CVT'
       call saveStmt sMnemonic,sOperands,sDesc,sOverlay
