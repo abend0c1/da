@@ -1302,7 +1302,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C D E F H P S X AD FD EB ED DB DD') then do
+      | inset(sTag,'A B C D E F H P S X AD FD EH DH EB ED DB DD') then do
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1949,6 +1949,8 @@ decodeDataField: procedure expose g.
     when sType = 'D'  then sData = doLongHexFloat(sData)
     when sType = 'AD' then sData = doAddress8(sData)
     when sType = 'FD' then sData = doFullword8(sData)
+    when sType = 'EH' then sData = doShortHexFloat(sData)
+    when sType = 'DH' then sData = doLongHexFloat(sData)
     when sType = 'EB' then sData = doShortBinFloat(sData)
     when sType = 'DB' then sData = doLongBinFloat(sData)
     when sType = 'ED' then sData = doShortDecFloat(sData)
@@ -2363,12 +2365,12 @@ dfp: procedure expose g. /* Decimal Floating Point */
   then do
     nBiasedExp = b2d(b34 || bRBE)
     if right(b345,1) = 0
-    then nLMD = 8            /* Left Most Digit */
-    else nLMD = 9
+    then nLMD = 8            /* Left Most Digit is 8 */
+    else nLMD = 9            /* Left Most Digit is 9 */
   end
   else do
     nBiasedExp = b2d(b12 || bRBE)
-    nLMD = b2d(b345)
+    nLMD = b2d(b345)         /* Left Most Digit is encoded in bits 3-5 */
   end
   nExp = nBiasedExp-nBias
   nDeclets = declets(bSignificand)
@@ -2516,6 +2518,8 @@ doType: procedure expose g.
     when sType = 'D'  then sResidual = doLongHexFloat(sField)
     when sType = 'AD' then sResidual = doAddress8(sField)
     when sType = 'FD' then sResidual = doFullword8(sField)
+    when sType = 'EH' then sResidual = doShortHexFloat(sField)
+    when sType = 'DH' then sResidual = doLongHexFloat(sField)
     when sType = 'EB' then sResidual = doShortBinFloat(sField)
     when sType = 'DB' then sResidual = doLongBinFloat(sField)
     when sType = 'ED' then sResidual = doShortDecFloat(sField)
