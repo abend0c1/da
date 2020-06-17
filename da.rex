@@ -2033,44 +2033,46 @@ decodeDataField: procedure expose g.
 return sData
 
 doAddress: procedure expose g.
-  parse arg sField +4 sData
-  nField = length(sField)
-  xField = c2x(sField)
-  select
-    when nField = 4 then do    /* Generate A(label) or AL4(label)     */
-      xLoc = xField
-      sLoc = right(x2c(xLoc),4,'00'x)
-      b31  = bitand(sLoc,'80000000'x) = '80000000'x
-      sLoc = bitand(sLoc,'7FFFFFFF'x)
-      xLoc = d2x(x2d(c2x(sLoc)))  /* Remove leading zeros */
-      sLabel = getLabel(xLoc)
-      if sLabel = ''
-      then do
-        if x2d(xLoc) < g.0LOC
-        then call addBackRef xLoc
-        sLabel = label(xLoc)
-        call refLabel sLabel,xLoc
+  if isFullwordBoundary()
+  then do
+    parse arg sField +4 sData
+    nField = length(sField)        /* 1 to 4 bytes on fullword boundary */
+    xField = c2x(sField)
+    select
+      when nField = 4 then do    /* Generate A(label) or AL4(label)     */
+        xLoc = xField
+        sLoc = right(x2c(xLoc),4,'00'x)
+        b31  = bitand(sLoc,'80000000'x) = '80000000'x
+        sLoc = bitand(sLoc,'7FFFFFFF'x)
+        xLoc = stripx(c2x(sLoc)) /* Remove leading zeros */
+        sLabel = refLabel(getLabel(xLoc),xLoc)
+        if b31 
+        then sLabel = sLabel"+X'80000000'"
+        call saveStmt 'DC',a(sLabel),x(xField),g.0XLOC8 xField
       end
-      if b31 
-      then sLabel = sLabel"+X'80000000'"
-      if isFullwordBoundary()
-      then call saveStmt 'DC',a(sLabel),x(xField),g.0XLOC8 xField
-      else call saveStmt 'DC',al(sLabel,4),x(xField),g.0XLOC8 xField
-    end
-    when nField = 3 then do   /* Generate AL3(label)                 */
-      xLoc = d2x(x2d(xField)) /* Remove leading zeros */
-      sLabel = getLabel(xLoc)
-      if sLabel = ''
-      then do
-        if x2d(xLoc) < g.0LOC
-        then call addBackRef xLoc
-        sLabel = label(xLoc)
-        call refLabel sLabel,xLoc
+      when nField = 3 then do   /* Generate AL3(label)                 */
+        xLoc = stripx(xField)   /* Remove leading zeros */
+        sLabel = refLabel(getLabel(xLoc),xLoc)
+        call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
       end
-      call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
+      otherwise do              /* Generate ALn(decimal)               */
+        call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
+      end
     end
-    otherwise do              /* Generate ALn(decimal)               */
-      call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
+  end
+  else do
+    parse arg sField +3 sData
+    nField = length(sField)        /* 1 to 3 bytes not fullword aligned */
+    xField = c2x(sField)
+    select
+      when nField = 3 then do   /* Generate AL3(label)                  */
+        xLoc = stripx(xField)   /* Remove leading zeros */
+        sLabel = refLabel(getLabel(xLoc),xLoc)
+        call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
+      end
+      otherwise do              /* Generate ALn(decimal)                */
+        call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
+      end
     end
   end
   call nextLoc +nField
@@ -2129,11 +2131,19 @@ return ''
 
 doFullword: procedure expose g.
   parse arg sField +4 sData
-  xField = c2x(sField)
   nField = length(sField)
-  if isFullwordBoundary() & nField = 4
-  then call saveStmt 'DC',f(xField),,g.0XLOC8 xField
-  else call saveStmt 'DC',fl(xField),,g.0XLOC8 xField
+  xField = c2x(sField)
+  select
+    when isText(sField),       /* Rarely:      L R1,=CL4'BLAH' */
+      then call saveStmt 'DC',cl(sField),x(xField),g.0XLOC8 xField
+    when adcon(sField) <> '',  /* Quite often: L R1,=A(blah)   */
+      then call saveStmt 'DC',adcon(sField),x(xField),g.0XLOC8 xField
+    otherwise do               /* But mostly:  L R1,=F'123'    */
+      if isFullwordBoundary() & nField = 4
+      then call saveStmt 'DC',f(xField),,g.0XLOC8 xField
+      else call saveStmt 'DC',fl(xField),,g.0XLOC8 xField
+    end
+  end
   call nextLoc +nField
 return sData
 
@@ -2498,7 +2508,7 @@ doUnspecified: procedure expose g.
   /* Prioritise a leading 4-byte address constant - which happens quite
      often. This avoids say 0000C4D4 being decoded as
      XL2'0000',C'DM' when, if location C4D4 already has a label assigned,
-     A(somelabel) would be more appropriate
+     A(LC4D4) would be more appropriate
   */
   if isFullwordBoundary() & length(s4) = 4
   then do
