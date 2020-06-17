@@ -2172,7 +2172,7 @@ doPacked: procedure expose g.
   xField = c2x(sField)
   nField = getPackedLen(xField)         /* Size of valid packed dec  */
   if nField = 0                         /* If position is no good    */
-  then sData = doBinary(sData)          /* then not packed decimal   */
+  then sData = doHex(sData)             /* Then not packed decimal   */
   else do                               /* Valid packed decimal      */
     parse var sData sField +(nField) sData
     xField = c2x(sField)
@@ -2234,7 +2234,7 @@ s: procedure             /* S-type address constant */
 return 'S('||x(xDisp)'('r(xBaseReg)'))'
 
 sLoc: procedure expose g.
-  arg xBaseReg +1 xDisp +3
+  arg xBaseReg +1 xDisp .
   xBase = g.0CBASE.xBaseReg
   if xBase = ''
   then nLoc = 0
@@ -2247,9 +2247,7 @@ doHex: procedure expose g.
     parse var sData sField +24 sData /* 24 bytes at a time */
     xField = c2x(sField)
     nField = length(sField)
-    if nField <= 6
-    then call saveStmt 'DC',xl(xField),,g.0XLOC8 xField
-    else call saveStmt 'DC',xl(xField),,g.0XLOC8
+    call saveStmt 'DC',xl(xField),,g.0XLOC8 ox(xField)
     call nextLoc +(nField)
   end
 return sData
@@ -2525,12 +2523,11 @@ doUnspecified: procedure expose g.
   sType = g.0CTYPE.xLoc
   if sType <> ''
   then do
-    nMax = g.0MAXLEN.sType
     nField = g.0CLENG.xLoc
     nData = length(sData)
     if nField <= nData
     then do
-      nField = min(nMax,nField)
+      nField = min(g.0MAXLEN.sType,nField)
       parse var sData sField +(nField) sData
       xField = c2x(sField)
       sTemp = doType(sType,sField)
@@ -2545,7 +2542,6 @@ doUnspecified: procedure expose g.
   .BCDEF      1             2
   ABCDEF      0             1
   ......      1             0
-
 */
   select
     when nFirstText = 0 then do     /* All binary */
@@ -2600,9 +2596,50 @@ doType: procedure expose g.
     when sType = 'DB' then sResidual = doLongBinFloat(sField)
     when sType = 'ED' then sResidual = doShortDecFloat(sField)
     when sType = 'DD' then sResidual = doLongDecFloat(sField)
-    otherwise              sResidual = doUnspecified(sField)
+    otherwise              sResidual = doHumanFriendly(sField)
   end
 return sResidual
+
+doHumanFriendly: procedure expose g.
+  parse arg sField
+  nField = length(sField)
+  xField = c2x(sField)
+  nBoundary = g.0LOC//4
+  select
+    when nField = 4 & nBoundary = 4 then do
+      call saveStmt 'DC',fh(xField),x(xField),g.0XLOC8 ox(xField)
+    end
+    when nField = 2 & (nBoundary = 0 | nBoundary = 2) then do
+      call saveStmt 'DC',h(xField),x(xField),g.0XLOC8 ox(xField)
+    end
+    when nField = 1 then do
+      call saveStmt 'DC',ald(xField),x(xField),g.0XLOC8 ox(xField)
+    end
+    otherwise do
+      call saveStmt 'DC',xl(xField),,g.0XLOC8 ox(xField)
+    end
+  end
+  call nextLoc +nField
+return ''
+
+ox: procedure            /* Optional hex */
+  parse arg xData
+  if length(xData) <= 12 /* If no longer than the longest instruction */
+  then return xData
+return ''                /* Reduce clutter */
+
+fh: procedure           /* Fullword, or two halfwords */
+  parse arg xData 0  xH1 +4 xH2 +4  1 x1 +2  3 x2 +2  5 x3 +2  7 x4 +2
+  select
+    when xH1 = '0000'          then return f(xData)          /* 0000xxxx */
+    when xH2 = '0000'          then return h(xH1)','h(xH2)   /* xxxx0000 */
+    when x1 = '00' & x3 = '00' then return h(xH1)','xl(xH2)  /* 00xx00xx */
+    when x2 = '00' & x4 = '00' then return xl(xH1)','xl(xH2) /* xx00xx00 */
+    when x1 = '00' & x4 = '00' then return h(xH1)','xl(xH2)  /* 00xxxx00 */
+    when x2 = '00'             then return xl(xH1)','h(xH2)  /* xx00xxxx */
+    otherwise nop                                            /* xxxxxxxx */
+  end
+return f(xData)
 
 doBinary: procedure expose g.
   parse arg sData
@@ -2616,25 +2653,25 @@ doBinary: procedure expose g.
       if sAdCon = ''
       then sBin = sBin || s4  /* Accumulate this binary chunk */
       else do
-        sBin = doBin(sBin)    /* Emit any preceeding binary chunk */
+        sBin = doResidual(sBin)    /* Emit any preceeding binary chunk */
         x4 = c2x(s4)
         call saveStmt 'DC',sAdCon,x(x4),g.0XLOC8 x4 /* Emit A(somelabel) */
         call nextLoc +length(s4)
       end
     end
-    sBin = doBin(sBin)        /* Emit any residual binary */
+    sBin = doResidual(sBin)        /* Emit any residual binary */
   end
-  else do                     /* Not fullword aligned */
+  else do                          /* Not fullword aligned */
     do while length(sData) > 0
       parse var sData sChunk +16 sData /* 16 bytes at a time */
       do while length(sChunk) > 0
-        sBin = doBin(sChunk)
+        sBin = doResidual(sChunk)
       end
     end
   end
 return ''
 
-doBin: procedure expose g.
+doResidual: procedure expose g.
   parse arg sField
   do while length(sField) > 0
     xLoc = g.0XLOC
@@ -2669,20 +2706,6 @@ return g.0LOC//8 = 0
 
 isHalfwordBoundary: procedure expose g.
 return g.0LOC//2 = 0
-
-data: procedure expose g.
-  arg xData
-  /* Try to generate a human friendly constant */
-  nBytes = length(xData)/2
-  nBoundary = g.0LOC//4
-  select
-    when nBoundary = 0 & nBytes = 4 then return fhx(xData) /* fw on fw */
-    when nBoundary = 0 & nBytes = 2 then return hx(xData)  /* hw on fw */
-    when nBoundary = 2 & nBytes = 2 then return hx(xData)  /* hw on hw */
-    when nBytes = 1 then return ald(xData) /* single byte */
-    otherwise nop
-  end
-return xl(xData)                          /* multi byte */
 
 a: procedure             /* Address (aligned on a fullword boundary) */
   arg sLabel .
@@ -2729,21 +2752,6 @@ fdl: procedure           /* Binary doubleword with length */
   arg xData .
 return 'FDL'length(xData)/2"'"x2d(xData,16)"'"
 
-fhx: procedure           /* Fullword, halfword or hex */
-  arg xData
-  nData = x2d(xData,8)
-  if abs(nData) > 4096   /* 00001000 or higher */
-  then do                /* split fullword into two halfwords */
-    parse var xData xH1 +4 xH2 +4 1 x1 +1 x2 +1 x3 +1 x4 +1
-    select
-      when xH1 = '0000' then return h(xH1)','h(xH2)          /* 0000xxxx */
-      when xH2 = '0000' then return h(xH1)','h(xH2)          /* xxxx0000 */
-      when x1 = '00' & x3 = '00' then return h(xH1)','h(xH2) /* 00xx00xx */
-      otherwise return xl(xData)                             /* xxxxxxxx */
-    end
-  end
-return f(xData)          /* 00000000 to 00001000 --> F'0' to F'4096'*/
-
 h: procedure             /* Halfword */
   arg xData .
 return "H'"x2d(xData,4)"'"
@@ -2751,13 +2759,6 @@ return "H'"x2d(xData,4)"'"
 hl: procedure            /* Halfword with length */
   arg xData .
 return 'HL'length(xData)/2"'"x2d(xData,4)"'"
-
-hx: procedure            /* Halfword or hex */
-  arg xData
-  nData = x2d(xData,8)
-  if abs(nData) <= 4096  /* Arbitrary friendly cutoff               */
-  then return h(xData)   /* 0000 to 1000 --> H'0' to H'4096'        */
-return xl(xData)         /* 1001 to 1FFF --> XL2'1001' to XL2'1FFF' */
 
 p: procedure             /* Packed decimal */
   arg xData .                      /* 19365F */
