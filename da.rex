@@ -1,5 +1,5 @@
 /*REXX*/
-/* DA - z/OS Disassembler Edit Macro v2.0
+/* DA - z/OS Disassembler Edit Macro v3.0
 
 Copyright (c) 2019-2020, Andrew J. Armstrong
 All rights reserved.
@@ -168,25 +168,49 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **            ASM     - Generate an assembly job that you can submit **
 **                      to verify the disassembled source is valid.  **
 **                                                                   **
+** LOGIC    - 1. Read the hex input file and extrat the hex and any  **
+**               tags describing the hex. Create tags to label each  **
+**               CSECT name found (if any).                          **
+**                                                                   **
+**            2. Dissassemble the hex producing a list of machine    **
+**               instructions (code) or Define Constant (DC)         **
+**               directives (data) - along with the corresponding    **
+**               hex offset of each. If the user has specified tags  **
+**               of the format (Rnn=>dsect) then build a DSECT for   **
+**               each offset from the associated base register(s).   **
+**                                                                   **
+**            3. Build a list of references to storage locations     **
+**               with the data type and length either inferred from  **
+**               the machine instruction, or explicitly specified by **
+**               the user having supplied a tag for that location.   **
+**                                                                   **
+**            4. Cycle through the statement list and apply a label  **
+**               if a statement is referenced. The label can be      **
+**               either explicitly specified by the user via a tag,  **
+**               or automatically generated based on the location.   **
+**                                                                   **
+**            5. Cycle through the storage reference list, and for   **
+**               each referenced location that has no label, emit a  **
+**               comment saying that an undefined label was detect-  **
+**               ed and insert a (.xxx) tag in the original hex      **
+**               input file to account for the missing label. Warn   **
+**               the user to rerun DA to pick up the extra inserted  **
+**               tags.                                               **
+**                                                                   **
+**            6. For labels that cannot be assigned by this process, **
+**               for example self-modifying code, emit an EQU        **
+**               statement for each undefined label in order to      **
+**               avoid assembly errors.                              **
+**                                                                   **
+**                                                                   **
+**                                                                   **
 ** NOTES    - 1. As new instructions are added to the z/Series inst- **
 **               ruction set, it will be necessary to define them in **
 **               the comments below marked by BEGIN-xxx and END-xxx  **
 **               comments. Otherwise the new instructions will be    **
 **               treated as data.                                    **
 **                                                                   **
-**            2. External Symbol Dictionary symbol quick reference:  **
-**               CM - Common control section (COM)                   **
-**               ED - Element definition (CATTR)                     **
-**               ER - External reference (EXTRN)                     **
-**               LD - Label definition (ENTRY)                       **
-**               LR - Label reference                                **
-**               PC - Private code (unnamed START, CSECT, RSECT)     **
-**               PR - Part definition (CATTR PART)                   **
-**               SD - Section definition (START, CSECT, RSECT)       **
-**               WX - Weak external reference (WXTRN)                **
-**               XD - External dummy section (DXD or Q-type addr)    **
-**                                                                   **
-**            3. A handy way to initially tag the AMBLIST output is  **
+**            2. A handy way to initially tag the AMBLIST output is  **
 **               to issue the following EDIT commands:               **
 **                                                                   **
 **               C 90EC ("")90EC ALL; C 07FE 07FE('') ALL            **
@@ -220,17 +244,11 @@ BEGIN-JCL-COMMENTS
 **                                                                   **
 **    Action    Meaning                                              **
 **    --------- ---------------------------------------------------- **
-**    ,         Scan following hex as CODE and generate a label.     **
+**    ,         Scan following hex as CODE.                          **
 **              Remember: Comma=Code                                 **
 **                                                                   **
-**    .         Scan following hex as DATA and generate a label.     **
+**    .         Scan following hex as DATA.                          **
 **              Remember: Dot=Data                                   **
-**                                                                   **
-**    |         Scan following hex as DATA but do NOT generate a     **
-**              label. This can be used to break up data into logical**
-**              pieces that do not need to be addressed individually **
-**              via a label.                                         **
-**              Remember: Bar=Break                                  **
 **                                                                   **
 **    /         Reset to automatic data type detection and scan the  **
 **              following hex as DATA. This is equivalent to speci-  **
@@ -575,8 +593,8 @@ BEGIN-JCL-COMMENTS
 **                                                                   **
 ** 7. Examine the "Undefined labels" report at the end of the dis-   **
 **    assembly to help you identify where to insert CODE and DATA    **
-**    action markers. Labels will be created at each action marker   **
-**    location (except for the "|" action marker).                   **
+**    action markers. Labels will be created at each location that   **
+**    is referenced by a machine instruction or an address constant. **
 **                                                                   **
 ** 8. Press F3 to quit editing the disassembly and return to the     **
 **    AMBLIST output - where you can adjust the tags as described    **
@@ -592,6 +610,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200605 AA  Major redesign for version 3.0.           **
 **            20200525 AA  Implemented equates for Element Size and  **
 **                         Floating Point Format in vector instruc-  **
 **                         tions.                                    **
@@ -702,6 +721,11 @@ trace o
   call emit '*Label   Op    Operands                'left('Comment',59),
             'Location Hex          Format'
 
+  /*
+   *-------------------------------------------------------------------
+   * 1. Extract the hex input
+   *-------------------------------------------------------------------
+  */
   xMeta = readMeta()          /* Determine the input format          */
   if g.0AMBLIST
   then do
@@ -711,18 +735,23 @@ trace o
   end
   else   xData = readRawHex()
 
+  /*
+   *-------------------------------------------------------------------
+   * 2. Disassemble hex
+   *-------------------------------------------------------------------
+  */
   g.0ISCODE = 1       /* Set hex parsing mode (1=Code 0=Data) */
   do while xData <> '' /* Disassemble the extracted hex data */
     parse var xData xChunk '('sTags')' xData
     xChunk = space(xChunk,0)
     /* Decode any hex before the next tag */
-    nPos = verify(xChunk,'.,|/','MATCH') /* first action character */
-    if nPos = 0       /* If no dots, commas or vertical bars found */
+    nPos = verify(xChunk,'.,/','MATCH') /* first action character */
+    if nPos = 0       /* If no dots, commas or slashes found */
     then do
       call decodeChunk xChunk
     end
     else do while xChunk <> ''
-      nPos = verify(xChunk,'.,|/','MATCH') /* next dot or comma */
+      nPos = verify(xChunk,'.,/','MATCH') /* next dot, comma or slash */
       if nPos > 0
       then do /* decode up until the next action character */
         sAction = substr(xChunk,nPos,1) /* Get the action character */
@@ -751,8 +780,6 @@ trace o
         end
         otherwise nop              /* Use existing mode and data type  */
       end
-      if sAction <> '|' & getLabel(g.0XLOC) = '' /* If not already labeled */
-      then call defLabel label(g.0XLOC),g.0XLOC /* Generate a label here */
     end
     /* Now process the tag, if any */
     call handleTags sTags
@@ -765,138 +792,133 @@ trace o
   else call save ''               /* Emit only directives for this location */
   call nextLoc +1 /* Prevent repeating any directives on the last statement */
 
-  call saveRegisterEquates
-  call saveDSECTs
-
-  /* Label all the back references found */
-  do i = 1 to g.0BACKREF.0
-    xLoc = g.0BACKREF.i
-    nStmt = g.0STMT#.xLoc
-    if nStmt <> ''
-    then do
-      sLabel = getLabel(xLoc)
-      call defLabel sLabel,xLoc
-      g.0STMT.nStmt = overlay(sLabel,g.0STMT.nStmt)
-    end
+  if g.0DIAG   /* If a DIAGNOSE instruction was encountered */
+  then do      /* Emit a DIAG macro to avoid assembly error */
+    call emit '         MACRO'
+    call emit '&label   DIAG  &O1,&O2'
+    call emit '         DS    0h'
+    call emit "&label   DC    X'83',AL1(&O1*16),S(&O2.)"
+    call emit '         MEND'
   end
 
-  if g.0OPTION.STAT
-  then do
-    call saveCommentBlock 'Statistics'
-    call save '* Instruction format frequency ('g.0FC.0 'formats used)'
-    call save '*'
-    call save '*   Format     Count Mnemonics'
-    call save '*   ------     ----- ---------'
-    call sortStem 'g.0FC.',0
-    do i = 1 to sorted.0
-      n = sorted.i
-      sFormat = g.0FN.n
-      sMnemonics = sortWords(g.0ML.sFormat)
-      if length(sMnemonics) <= 50
-      then call save '*   'left(g.0FN.n,6) right(g.0FC.n,9) sMnemonics
-      else do
-        sForm = sFormat
-        nFreq = g.0FC.n
-        do while length(sMnemonics) > 50
-          nPos = lastpos(' ',sMnemonics,50)
-          if nPos = 0
+  /*
+   *-------------------------------------------------------------------
+   * 3. Apply labels to all referenced storage locations
+   *-------------------------------------------------------------------
+  */
+  do n = 1 to g.0LINE
+    parse var g.0STMT.n sOp sOperand sDesc 100 bIsCode +1 102 xLoc8 +8 .
+    if xLoc8 <> '' /* Only interested in code and data */
+    then do
+      xLoc = stripx(xLoc8)
+      bIsReferenced = isReferenced(xLoc)
+      if bIsReferenced
+      then do
+        call emit ''          /* Then insert a blank line before it */
+        sLabel = getLabel(xLoc)
+        nLoc = x2d(xLoc)
+        g.0ASS.nLoc = 1       /* Indicate present in disassembly */
+      end
+      else sLabel = ''
+      /* g.0CLENG.xLoc is the longest length actually used in an instruction
+        that references this location. If it is longer than the data length
+        assigned to this location then a 'DC 0XLnn' directive will be
+        inserted to cover the entire field referenced by the instruction.
+      */
+      select
+        when sOp = 'DC' &,       /* A constant, and...                     */
+            g.0CLENG.xLoc <> '' /* An instruction specified its length    */
+        then do
+          if pos('(',sOperand) > 0
+          then parse var sOperand sType'('sValue')'   /* A() style syntax  */
+          else parse var sOperand sType"'"sValue"'"   /* X'' style syntax  */
+          parse var sType sType'L'nLen
+          nPos = verify(nLen,'0123456789','NOMATCH')
+          if nPos > 0                   /* If a non-numeric is present     */
+          then nLen = left(nLen,nPos-1) /* Keep only length digits         */
+          if nLen = ''                  /* If length modifier is absent    */
+          then nLen = g.0MAXLEN.sType   /* Use default length for this type*/
+          if g.0CLENG.xLoc \= nLen
           then do
-            sChunk = sMnemonics
-            sMnemonics = ''
+            /* Use the label from the existing statement */
+            sLocType = g.0CTYPE.xLoc
+            if sLocType = '' then sLocType = 'X'
+            call emit left(sLabel,8) 'DC    0'tl(sLocType,g.0CLENG.xLoc)
+            call emit '        'substr(g.0STMT.n,9)
           end
-          else parse var sMnemonics sChunk +(nPos) sMnemonics
-          call save '*   'left(sForm,6) right(nFreq,9) sChunk
-          sForm = ''
-          nFreq = ''
+          else do
+            call emit left(sLabel,8)substr(g.0STMT.n,9)
+          end
         end
-        if sMnemonics \= ''
-        then call save '*   'left(sForm,6) right(nFreq,9) sMnemonics
+        when inSet(sOp,'EX EXRL') then do /* An Execute instruction */
+                                 /* Show the execute target in the comment */
+          parse var sOperand sReg','sExLabel
+          xLocInst = getLocation(sExLabel)
+          nEx = g.0STMT#.xLocInst
+          parse var g.0STMT.nEx sExOp sExOperand .
+          if sLabel <> ''
+          then g.0STMT.n = overlay(sLabel,g.0STMT.n)
+          call emit overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
+        end
+        when sOp = 'SVC' then do /* Supervisor Call instruction */
+          call emit left(sLabel,8)substr(g.0STMT.n,9)
+          call emit ''          /* Insert a blank line after it */
+        end
+        otherwise do
+          call emit left(sLabel,8)substr(g.0STMT.n,9)
+        end
       end
     end
-    call save '*'
-    call save '* Instruction mnemonic frequency ('g.0MC.0 'mnemonics used)'
-    call save '*'
-    call save '*   Mnemonic   Count Format Description'
-    call save '*   --------   ----- ------ -----------'
-    call sortStem 'g.0MC.',0
-    do i = 1 to g.0MC.0
-      n = sorted.i
-      sMnemonic = g.0MN.n
-      call save '*   'left(g.0MN.n,6) right(g.0MC.n,9),
-                        left(g.0MF.n,6) g.0DESC.sMnemonic
-    end
+    else call emit g.0STMT.n
   end
+  nHWM = n /* High Water Mark */
+
+  /*
+   *-------------------------------------------------------------------
+   * 4. Save all non-addressable statements
+   *-------------------------------------------------------------------
+  */
+
+  call saveRegisterEquates
+
+  call saveDSECTs
+
+  if g.0OPTION.STAT then call saveStatistics
+
+  /*
+   *-------------------------------------------------------------------
+   * 5. Process undefined labels
+   *-------------------------------------------------------------------
+  */
 
   nUndefinedLabels = saveUndefinedLabels()
 
   call save '         END'
 
+  do n = nHWM to g.0LINE
+    call emit g.0STMT.n
+  end
+
+  /*
+   *-------------------------------------------------------------------
+   * Termination
+   *-------------------------------------------------------------------
+  */
+
   say 'DIS0009I Generated' g.0LINE 'statements ('g.0INST 'instructions)'
   if g.0TODO > 0
   then say 'DIS0010W There are' g.0TODO 'lines marked: TODO (not code)'
   if nUndefinedLabels > 0
-  then say 'DIS0011W There are' nUndefinedLabels 'references to undefined labels',
-           '(see end of listing)'
+  then say 'DIS0011W There are' nUndefinedLabels 'references to undefined',
+           'labels (see end of listing)'
   if g.0NEWDOTS > 0
   then say 'DIS0013I Rerun DA to process' g.0NEWDOTS 'new references'
   else say 'DIS0014I DA processing complete'
 
-  /* Post-process all the generated statements */
-  do n = 1 to g.0LINE
-    xLoc = g.0LOC.n            /* Get the hex location of this statement */
-    if getLabel(xLoc) <> ''    /* If it has an auto-generated code label */
-    then call emit             /* Then insert a blank line before it */
-    /* g.0CLENG.xLoc is the longest length actually used in an instruction
-       that references this location. If it is longer than the data length
-       assigned to this location then a 'DC 0XLnn' directive will be
-       inserted to cover the entire field referenced by the instruction.
-    */
-    sLabel = ''
-    if left(g.0STMT.n) = ' '
-    then parse var g.0STMT.n        sOp sOperand sDesc 100 .
-    else parse var g.0STMT.n sLabel sOp sOperand sDesc 100 .
-    select
-      when sOp = 'DC' &,       /* A constant, and...                     */
-           g.0CLENG.xLoc <> '' /* An instruction specified its length    */
-      then do
-        if pos('(',sOperand) > 0
-        then parse var sOperand sType'('sValue')'   /* A() style syntax  */
-        else parse var sOperand sType"'"sValue"'"   /* X'' style syntax  */
-        parse var sType sType'L'nLen
-        nPos = verify(nLen,'0123456789','NOMATCH')
-        if nPos > 0                   /* If a non-numeric is present     */
-        then nLen = left(nLen,nPos-1) /* Keep only length digits         */
-        if nLen = ''                  /* If length modifier is absent    */
-        then nLen = g.0MAXLEN.sType   /* Use default length for this type*/
-        if g.0CLENG.xLoc \= nLen
-        then do
-          /* Use the label from the existing statement */
-          sLocType = g.0CTYPE.xLoc
-          if sLocType = '' then sLocType = 'X'
-          call emit left(sLabel,8) 'DC    0'tl(sLocType,g.0CLENG.xLoc)
-          g.0STMT.n = overlay(left('',8),g.0STMT.n)
-        end
-      end
-      when left(sOp,2) = 'EX'  /* An execute instruction (EX or EXRL) */
-      then do                  /* Show the execute target in the comment */
-        parse var sOperand sReg','sLabel
-        xLocInst = getLocation(sLabel)
-        nStmt = g.0STMT#.xLocInst
-        if left(g.0STMT.nStmt,1) = ''
-        then parse var g.0STMT.nStmt   sExOp sExOperand .
-        else parse var g.0STMT.nStmt . sExOp sExOperand .
-        g.0STMT.n = overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
-      end
-      otherwise nop
-    end
-    call emit g.0STMT.n
-  end
-
-
   'USER_STATE = (state)'      /* Restore editor state                */
   call epilog
   /* Insert tags for any undefined labels before the first CSECT */
-  if nUndefinedLabels
+  if g.0NEWDOTS > 0
   then do
     do i = sorted.0 to 1 by -1 /* Reverse order so they appear in order! */
       n = sorted.i
@@ -913,6 +935,52 @@ trace o
     end
   end
 return 1
+
+saveStatistics: procedure expose g.
+  call saveCommentBlock 'Statistics'
+  call save '* Instruction format frequency ('g.0FC.0 'formats used)'
+  call save '*'
+  call save '*   Format     Count Mnemonics'
+  call save '*   ------     ----- ---------'
+  call sortStem 'g.0FC.',0
+  do i = 1 to sorted.0
+    n = sorted.i
+    sFormat = g.0FN.n
+    sMnemonics = sortWords(g.0ML.sFormat)
+    if length(sMnemonics) <= 50
+    then call save '*   'left(g.0FN.n,6) right(g.0FC.n,9) sMnemonics
+    else do
+      sForm = sFormat
+      nFreq = g.0FC.n
+      do while length(sMnemonics) > 50
+        nPos = lastpos(' ',sMnemonics,50)
+        if nPos = 0
+        then do
+          sChunk = sMnemonics
+          sMnemonics = ''
+        end
+        else parse var sMnemonics sChunk +(nPos) sMnemonics
+        call save '*   'left(sForm,6) right(nFreq,9) sChunk
+        sForm = ''
+        nFreq = ''
+      end
+      if sMnemonics \= ''
+      then call save '*   'left(sForm,6) right(nFreq,9) sMnemonics
+    end
+  end
+  call save '*'
+  call save '* Instruction mnemonic frequency ('g.0MC.0 'mnemonics used)'
+  call save '*'
+  call save '*   Mnemonic   Count Format Description'
+  call save '*   --------   ----- ------ -----------'
+  call sortStem 'g.0MC.',0
+  do i = 1 to g.0MC.0
+    n = sorted.i
+    sMnemonic = g.0MN.n
+    call save '*   'left(g.0MN.n,6) right(g.0MC.n,9),
+                      left(g.0MF.n,6) g.0DESC.sMnemonic
+  end
+return
 
 onSyntax:
   sSourceLine = strip(sourceline(sigl))
@@ -1430,6 +1498,7 @@ handleTag: procedure expose g.
             dLoc = dLoc + 4096
           end
           call attachDirective g.0XLOC,'USING' sLabel','using(sRegisters),1
+          call refLabel label(xLoc),g.0XLOC
         end
         when sLabel = '' then do       /* (Rnn[+Rmm...]=)          */
           /* DROP Rnn[,Rmm...] */
@@ -1450,10 +1519,10 @@ handleTag: procedure expose g.
           nReg = getRegisterList(sLabel) /* Is nn when sLabel is Rnn */
           select
             when isHex(sLabel) then do   /* (Rnn[+Rnn...]=offset)    */
-              xLoc = d2x(x2d(sLabel))    /* Remove leading zeros */
-              sLabel = getLabel(xLoc)    /* Get label from location if any */
-              if sLabel = ''             /* If location has no label */
-              then sLabel = getLabel(0)'+'||x(xLoc) /* Then use absolute offset */
+              xLoc = stripx(sLabel)      /* Remove leading zeros     */
+              if getLabel(xLoc) = ''     /* If location has no label */
+              then call refLabel label(xLoc),xLoc
+              sLabel = getLabel(xLoc)    /* Get label from location  */
               dLoc = x2d(xLoc)
             end
             when isNum(nReg) then do     /* (Rnn[+Rnn...]=Rnn) */
@@ -1465,8 +1534,8 @@ handleTag: procedure expose g.
               g.0DBASE.x = ''
               call attachDirective g.0XLOC,'DROP  R'nReg,1
             end
-            otherwise do                 /* (Rnn[+Rnn...]=label) */
-              xLoc = getLabel(sLabel)    /* Get location from label */
+            otherwise do
+              xLoc = getLocation(sLabel) /* Get location from label */
               dLoc = x2d(xLoc)
             end
           end
@@ -1477,34 +1546,42 @@ handleTag: procedure expose g.
             dLoc = dLoc + 4096
           end
           call attachDirective g.0XLOC,'USING' sLabel','using(sRegisters),1
+          call refLabel sLabel,xLoc    /* Define and reference label */
         end
       end
     end
     when sTag1 = '.' then do        /* (.offset[=type]) */
       parse var sTag '.'xLoc'='sType .
-      if isHex(xLoc) & getLabel(xLoc) = ''
-      then call addDot xLoc
-      else say 'DIS0012W Invalid tag ignored: ('sTag')'
+      if isHex(xLoc)
+      then call addDot xLoc sType
+      else say 'DIS0012W Invalid tag ('sTag') ignored at offset' g.0XLOC8
     end
     otherwise do                    /* (label[=offset]) */
       parse var sTag sLabel'='xLoc .
-      if isHex(xLoc)
-      then call defLabel sLabel,xLoc
-      else call defLabel sLabel,g.0XLOC
+      if isHex(xLoc)                /* If hex is valid                     */
+      then xLoc = stripx(xLoc)      /* Then strip leading zeros            */
+      else xLoc = g.0XLOC           /* Else use the current location       */
+      call setLabel sLabel,xLoc     /* Set user-defined label              */
+      call refLabel sLabel,xLoc     /* Refer to it so it is not pruned     */
     end
   end
 return
 
+stripx: procedure /* Strip leading zeros from a hex string */
+  parse arg xLoc
+  xLoc = strip(xLoc,'LEADING',0)
+  if xLoc = '' then return 0
+return xLoc
+
 addDot: procedure expose g.
   parse arg xLoc sType .
-  nLoc = x2d(xLoc)
-  xLoc = d2x(nLoc) /* normalise hex */
-  if g.0DOTS.xLoc = ''
+  xLoc = stripx(xLoc)  /* normalise hex */
+  if g.0DOTS.xLoc = '' /* If (.xxx) tag is not a duplicate in input file */
   then do
     n = g.0DOT.0 + 1
     g.0DOTS.xLoc = n
     g.0DOT.0 = n
-    g.0DOT.n = nLoc
+    g.0DOT.n = x2d(xLoc)
     g.0DOTSORT = 1 /* Indicate sort is needed */
     if sType <> ''
     then do
@@ -1696,19 +1773,19 @@ saveUndefinedLabels:
   call sortStem 'g.0REFLOC.'
   /* First, detect if there are any undefined labels */
   g.0NEWDOTS = 0
-  nLabels = 0
+  nUndefinedLabels = 0
   do i = 1 to sorted.0
     n = sorted.i
-    nLoc = g.0REFLOC.n
-    xLoc = d2x(nL0c)
-    if g.0DEF.nLoc = ''
+    nLoc = g.0REFLOC.n      /* A rerferenced storage location */
+    if g.0ASS.nLoc = ''     /* Label not in disassembly listing */
     then do
-      nLabels = nLabels + 1
-      if g.0DOTS.xLoc = ''
+      nUndefinedLabels = nUndefinedLabels + 1
+      xLoc = d2x(nLoc)
+      if g.0DOTS.xLoc = ''  /* Not already in the input (.xxx) tags */
       then g.0NEWDOTS = g.0NEWDOTS + 1
     end
   end
-  if nLabels > 0
+  if nUndefinedLabels > 0
   then do
     call saveCommentBlock 'Undefined labels'
     call save '* Label    At       Length Ref from By instruction'
@@ -1717,13 +1794,13 @@ saveUndefinedLabels:
     do i = 1 to sorted.0
       n = sorted.i
       nLoc = g.0REFLOC.n
-      if g.0DEF.nLoc = ''
+      if g.0ASS.nLoc = ''
       then do
         xLoc = d2x(nLoc)
         sLabel = left(getLabel(xLoc),8)
         xLocRef = g.0REF.nLoc
         n = g.0STMT#.xLocRef
-        parse var g.0STMT.n 10 sInst sOperands .
+        parse var g.0STMT.n sInst sOperands .
         call save '*' sLabel left(xLoc,8),
                   right(g.0CLENG.xLoc,6) right(xLocRef,8),
                   left(sInst,6) sOperands
@@ -1741,7 +1818,7 @@ saveUndefinedLabels:
       end
     end
   end
-return nLabels
+return nUndefinedLabels
 
 saveBanner:
   parse arg sComment
@@ -2010,15 +2087,8 @@ doAddress8: procedure expose g.
   select
     when nField = 8 then do    /* Generate AD(label) or ADL8(label)     */
       xLoc = xField
-      xLoc = d2x(x2d(xLoc))    /* Remove leading zeros */
-      sLabel = getLabel(xLoc)
-      if sLabel = ''
-      then do
-        if x2d(xLoc) < g.0LOC
-        then call addBackRef xLoc
-        sLabel = label(xLoc)
-        call refLabel sLabel,xLoc
-      end
+      xLoc = stripx(xLoc)      /* Remove leading zeros */
+      sLabel = refLabel(getLabel(xLoc),xLoc)
       if isDoublewordBoundary()
       then call saveStmt 'DC',ad(sLabel),x(xField),g.0XLOC8 xField
       else call saveStmt 'DC',adl(sLabel,8),x(xField),g.0XLOC8 xField
@@ -2801,7 +2871,7 @@ decodeInst: procedure expose g.
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
   if inSet(sFlag,'A C C8 c M')
-  then g.0CC = sFlag /* Instruction type that sets condition code       */
+  then g.0CC = left(sFlag,1) /* Instruction type that sets condition code       */
 
   select
     when sMnemonic = 'L' & X2=0 & B2=0 & D2 = '010' then do
@@ -2975,19 +3045,11 @@ return wordpos(sArg,sSet) > 0
 
 saveStmt: procedure expose g.
   parse arg sMnemonic,sOperands,sComment,sOverlay
-  sLabel = getLabel(g.0XLOC)
-  if sLabel <> ''
-  then do
-    nLoc = x2d(g.0XLOC)
-    g.0DEF.nLoc = 1           /* Remember a label is assigned to this location*/
-  end
   nMnemonic = max(length(sMnemonic),5)
   sInst = left(sMnemonic,nMnemonic) sOperands
   nInst = max(length(sInst),29)
-  sStmt = left(sLabel,8),
-          left(sInst,nInst),
-          sComment
-  call save overlay(sOverlay,sStmt,100)
+  sStmt = '        ' left(sInst,nInst) sComment
+  call save overlay(g.0ISCODE sOverlay,sStmt,100)
 return
 
 db: procedure expose g.       /* Unsigned 12-bit displacement off base */
@@ -3089,11 +3151,7 @@ getLabelDisp: procedure expose g.
       xLoc = g.0CBASE.xBaseReg
       nTarget = x2d(xLoc) + x2d(xDisp)
       xTarget = d2x(nTarget)
-      if nTarget < g.0LOC /* If target is before the current location */
-      then call addBackRef xTarget /* Remember so we can apply labels later */
-      if getLabel(xTarget) = ''  /* If a label is not already assigned */
-      then call refLabel label(xTarget),xTarget
-      sLabel = getLabel(xTarget)
+      sLabel = refLabel(label(xTarget),xTarget)
     end
     when g.0DBASE.xBaseReg \= '' then do /* This is a DSECT base register */
       sLabel = getDsectLabel(xDisp,xBaseReg,xLength)
@@ -3107,13 +3165,6 @@ getLabelDisp: procedure expose g.
     otherwise nop                /* Unnamed base+displacement */
   end
 return sLabel
-
-addBackRef: procedure expose g.
-  arg xLoc
-  n = g.0BACKREF.0 + 1
-  g.0BACKREF.0 = n
-  g.0BACKREF.n = xLoc
-return
 
 getDsectLabel: procedure expose g.
   arg xDisp,xBaseReg,xLength
@@ -3157,9 +3208,10 @@ t: procedure expose g. /* Operand length hint */
         if g.0CLENG.xTarget = ''
         then g.0CLENG.xTarget = nLength
         else g.0CLENG.xTarget = max(g.0CLENG.xTarget,nLength)
+        if g.0CTYPE.xTarget = '' 
+        then g.0CTYPE.xTarget = sType
+        call refLabel ,xTarget
       end
-      if g.0CTYPE.xTarget = '' & sType \= ''
-      then g.0CTYPE.xTarget = sType
     end
     when g.0DBASE.xBaseReg \= '' then do /* Base+Disp addresses DSECT */
       if nLength \= ''      /* If instruction has an implicit operand length */
@@ -3277,11 +3329,8 @@ getLabelRel: procedure expose g.
   nTarget = g.0LOC + nOffset
   if nTarget < 0 then nTarget = 0
   xTarget = d2x(nTarget)
-  if nOffset < 0 & getLabel(xTarget) = '' /* If unlabeled back reference */
-  then call addBackRef xTarget /* Remember so we can apply labels later */
-  if getLabel(xTarget) = ''  /* If a label is not already assigned */
-  then call refLabel label(xTarget),xTarget
-return getLabel(xTarget)
+  sLabel = refLabel(label(xTarget),xTarget)
+return sLabel  
 
 getLabel: procedure expose g.    /* Label name for this hex location */
   arg xLoc
@@ -3291,24 +3340,20 @@ getLocation: procedure expose g. /* Hex location for this label */
   arg sLabel
 return g.0XLOC.sLabel
 
-isReferredTo: procedure expose g.
+isReferenced: procedure expose g.
   parse arg xLoc
   nLoc = x2d(xLoc)
 return g.0REF.nLoc \= ''
-
-defLabel: procedure expose g. /* Explicitly define a label for a location */
-  parse arg sLabel,xLoc
-  nLoc = x2d(xLoc)
-  xLoc = d2x(nLoc)            /* Remove leading zeros from xLoc */
-  call setLabel sLabel,xLoc   /* Assign a label to location */
-  g.0DEF.nLoc = 1             /* Remember this location has a label */
-return
 
 refLabel: procedure expose g. /* Implicitly define a referenced label */
   parse arg sLabel,xLoc
   nLoc = x2d(xLoc)
   xLoc = d2x(nLoc)            /* Remove leading zeros from xLoc */
-  call setLabel sLabel,xLoc   /* Assign a label to location */
+  if sLabel = ''
+  then sLabel = label(xLoc)
+  if getLabel(xLoc) = ''
+  then call setLabel sLabel,xLoc   /* Assign a label to location */
+  sLabel = getLabel(xLoc)
   if g.0REF.nLoc = ''
   then do                     /* Add to list of locations referred to */
     g.0REF.nLoc = g.0XLOC     /* Remember this location was referenced */
