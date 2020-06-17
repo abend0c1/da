@@ -342,11 +342,11 @@ BEGIN-JCL-COMMENTS
 **              or an empty formatspec tag: (%). Each row of table   **
 **              data is parsed according to the formatspec. The      **
 **              formatspec consists of zero or more space delimited  **
-**              assembler storage type declaratins each having the   **
+**              assembler storage type declarations each having the  **
 **              format:                                              **
 **                      <duplication_factor><type><length_modifier>  **
 **                  or: <type><length_modifier>=<variable_name>      **
-**                  or: <type><length_expression>                    **
+**                  or: <type>L<length_expression>                   **
 **                                                                   **
 **              ...for example, 4XL3. The default duplication_factor **
 **              (the repetition count for the field) is 1. The       **
@@ -397,16 +397,16 @@ BEGIN-JCL-COMMENTS
 **                       DC   XL1'01'                                **
 **                       DC   PL4'8089526'                           **
 **                                                                   **
-**              By using the =variable_name and :length_expression   **
+**              By using the =variable_name and length_expression    **
 **              syntax, you can parse variable length data.          **
 **                                                                   **
 **              When =variable_name is specified, a rexx variable is **
 **              created called $variable_name - to avoid clashes with**
-**              variables already used by the DA Rex procedure -     **
+**              variables already used by the DA Rexx procedure -    **
 **              containing the contents of the associated field      **
 **              converted to decimal.                                **
 **                                                                   **
-**              When :length_expression is specified, the expression **
+**              When length_expression is specified, the expression  **
 **              can be any simple Rexx expression that results in a  **
 **              positive whole number. The expression must not cont- **
 **              ain parentheses. You should use variable names you   **
@@ -415,17 +415,17 @@ BEGIN-JCL-COMMENTS
 **                                                                   **
 **              For example,                                         **
 **                                                                   **
-**              (%AL1=n CL:$n+1).                                    **
-**              00 C1 01 C1C2 02 C1C2C3                              **
+**              (%AL1=n CL$n+1).                                     **
+**              00 C1 01 C1C2 04 C1C2C34040                          **
 **                                                                   **
 **              ...will be disassembled as:                          **
 **                                                                   **
 **              L0       DC   AL1(0)          <-- Variable string 1  **
-**                       DC   CL1'A'                                 **
+**                       DC   CL1'A'          <-- Length is 0+1      **
 **                       DC   AL1(1)          <-- Variable string 2  **
-**                       DC   CL2'AB'                                **
+**                       DC   CL2'AB'         <-- Length is 1+1      **
 **                       DC   AL1(2)          <-- Variable string 3  **
-**                       DC   CL3'ABC'                               **
+**                       DC   CL5'ABC'        <-- Length is 4+1      **
 **                                                                   **
 **    ()        Resets the data type tag so that automatic data type **
 **              detection is enabled. Automatic data type detection  **
@@ -1392,8 +1392,8 @@ handleTag: procedure expose g.
           when pos('=',sToken) > 0 then do  /* token=var */
             parse var sToken sToken'='sVar
           end
-          when pos(':',sToken) > 0 then do  /* token:expression */
-            parse var sToken sToken':'sExp
+          when pos('$',sToken) > 0 then do  /* token:expression */
+            parse var sToken sToken'L'sExp
           end
           otherwise nop
         end
@@ -1408,7 +1408,7 @@ handleTag: procedure expose g.
         2       Data type X (default) of length 2     (type not specified)
         2x3     2 x data type X (default) of length 3 (when x is invalid type)
         AL1=n   Parse 1 byte and assign it to variable n (rexx variable $n)
-        CL:$n+1 Parse $n+1 bytes of data type C
+        CL$n+1  Parse $n+1 bytes of data type C
 */        
         nRep = ''
         sTyp = ''
