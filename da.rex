@@ -991,10 +991,6 @@ onSyntax:
   else say 'DIS0100E Invalid input at location' g.0XLOC8
 return ''
 
-xLoc8: procedure
-  arg nLoc
-return right(d2c(nLoc),8,0)
-
 readMeta: procedure expose g.
   /* Determine whether we are scanning AMBLIST output  */
   nRow = seek('*****  M O D U L E   S U M M A R Y  *****','FIRST')
