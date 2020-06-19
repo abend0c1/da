@@ -2536,7 +2536,7 @@ doUnspecified: procedure expose g.
   end
   xLoc = g.0XLOC
   sType = g.0CTYPE.xLoc
-  if sType <> ''
+  if sType <> '' & g.0MAXLEN.sType <> ''
   then do
     nField = g.0CLENG.xLoc
     nData = length(sData)
