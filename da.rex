@@ -859,9 +859,9 @@ trace o
           sStmt = overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
           call emitStmt sLabel,substr(g.0STMT.n,10)
         end
-        when sOp = 'SVC' then do /* Supervisor Call instruction */
-          call emit left(sLabel,8)substr(g.0STMT.n,9)
-          call emit ''          /* Insert a blank line after it */
+        when inSet(sOp,'BALR BASSM BASR BAL BAS BAKR PC SVC') then do
+          call emitStmt sLabel,substr(g.0STMT.n,10)
+          call emit ''          /* Insert a blank line after */
         end
         otherwise do
           call emitStmt sLabel,substr(g.0STMT.n,10)
