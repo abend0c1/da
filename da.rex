@@ -1876,7 +1876,7 @@ emitStmt: procedure expose g.
     call emit sLabel    'ds 0x'
     call emit '        ' sStmt
   end
-  else call emit left(sLabel,8)sStmt
+  else call emit left(sLabel,8) sStmt
 return
 
 emit: procedure expose g.
