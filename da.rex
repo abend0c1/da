@@ -843,11 +843,11 @@ trace o
             /* Use the label from the existing statement */
             sLocType = g.0CTYPE.xLoc
             if sLocType = '' then sLocType = 'X'
-            call emit left(sLabel,8) 'DC    0'tl(sLocType,g.0CLENG.xLoc)
-            call emit '        'substr(g.0STMT.n,9)
+            call emitStmt sLabel,'DC    0'tl(sLocType,g.0CLENG.xLoc)
+            call emitStmt       ,substr(g.0STMT.n,10)
           end
           else do
-            call emit left(sLabel,8)substr(g.0STMT.n,9)
+            call emitStmt sLabel,substr(g.0STMT.n,10)
           end
         end
         when inSet(sOp,'EX EXRL') then do /* An Execute instruction */
@@ -856,16 +856,15 @@ trace o
           xLocInst = getLocation(sExLabel)
           nEx = g.0STMT#.xLocInst
           parse var g.0STMT.nEx sExOp sExOperand .
-          if sLabel <> ''
-          then g.0STMT.n = overlay(sLabel,g.0STMT.n)
-          call emit overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
+          sStmt = overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
+          call emitStmt sLabel,substr(g.0STMT.n,10)
         end
         when sOp = 'SVC' then do /* Supervisor Call instruction */
           call emit left(sLabel,8)substr(g.0STMT.n,9)
           call emit ''          /* Insert a blank line after it */
         end
         otherwise do
-          call emit left(sLabel,8)substr(g.0STMT.n,9)
+          call emitStmt sLabel,substr(g.0STMT.n,10)
         end
       end
     end
@@ -1869,6 +1868,16 @@ getNextStmtNumber: procedure expose g.
   end
   g.0LINE = n
 return n
+
+emitStmt: procedure expose g.
+  parse arg sLabel,sStmt
+  if length(sLabel) > 8
+  then do
+    call emit sLabel    'ds 0x'
+    call emit '        ' sStmt
+  end
+  else call emit left(sLabel,8)sStmt
+return
 
 emit: procedure expose g.
   parse arg sLine 1 s71 +71 sRest 100 sInfo
