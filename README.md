@@ -664,8 +664,6 @@ immediately before the hex to which they apply:
     data. You may use it to name a CSECT for example.
     The label cannot be `R0` to `R15`, or `A`, `B`, `C`, `D`, `DB`, `DD`, `E`, `EB`, `ED`, `F`, `H`, `P`, `S` or
     `X` as those have special meanings as described above.
-    The maximum length of a label assigned in this way
-    is 8 (for pragmatic reasons).
 
     For example:
     ```
