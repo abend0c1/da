@@ -1881,6 +1881,12 @@ return
 
 emit: procedure expose g.
   parse arg sLine 1 s71 +71 sRest 100 sInfo
+  if sLine = ''
+  then do
+    if g.0BLANK = 1 then return /* Suppress multiple blank lines */
+    g.0BLANK = 1
+  end
+  else g.0BLANK = 0
   if sRest = ''  /* if nothing to continue onto the next line */
   then queue sLine
   else do
