@@ -2621,7 +2621,7 @@ doHumanFriendly: procedure expose g.
   xField = c2x(sField)
   nBoundary = g.0LOC//4
   select
-    when nField = 4 & nBoundary = 4 then do
+    when nField = 4 & nBoundary = 0 then do
       call saveStmt 'DC',fh(xField),x(xField),g.0XLOC8 ox(xField)
     end
     when nField = 2 & (nBoundary = 0 | nBoundary = 2) then do
