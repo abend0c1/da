@@ -3521,7 +3521,7 @@ prolog:
   g.0ISCODE = 1       /* 1=Code 0=Data                                   */
   g.0DOT.0 = 0        /* Number of dots to be inserted                   */
   g.0FIELD.0 = 0      /* Number of fields when parsing a table entry     */
-  g.0DIAG.  = 0       /* DIAG macro is to be inserted                    */
+  g.0DIAG   = 0       /* DIAG macro is to be inserted                    */
   do i = 1 until sourceline(i) = 'BEGIN-FORMAT-DEFINITIONS'
   end
   do i = i+1 while sourceline(i) <> 'END-FORMAT-DEFINITIONS'
@@ -5770,8 +5770,8 @@ EH  00000001          +(DMIN)        Minimum denormalized HFP number
 EH  00100000          +(MIN)         Minimum HFP number
 EH  7FFFFFFF          +(MAX)         Maximum HFP number
 EH  80000000          -0
-EH  80100000          -(MIN)
 EH  80000001          -(DMIN)
+EH  80100000          -(MIN)
 EH  FFFFFFFF          -(MAX)
 EB  00000000          +0
 EB  00000001          +(DMIN)        Minimum subnormal BFP number
