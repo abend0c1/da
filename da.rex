@@ -4157,35 +4157,35 @@ RRS    . r(R1) r(R2) m(M3) db(D4,B4)
 RSa    8 O1 +2 R1 +1    .  +1  B2 +1  D2 +3
 RSa    . r(R1)       dbs(D2,B2)
 RSb    8 O1 +2 R1 +1    M3 +1  B2 +1  D2 +3
-RSb    . r(R1) m(M3) db(D2,B2)          t(ml(M3),B2,D2)
+RSb    . r(R1) m(M3) db(D2,B2)          t(ml(M3),B2,D2,T2)
 RSA    8 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3
-RSA    . r(R1) r(R3) db(D2,B2)          t(TL,B2,D2)
+RSA    . r(R1) r(R3) db(D2,B2)          t(TL,B2,D2,T2)
 RSI    8 O1 +2 R1 +1    R3 +1 RI2 +4
 RSI    . r(R1) r(R3) r4(RI2)
 RSLa  12 O1 +2 L1 +1     . +1  B1 +1  D1 +3   . +1  . +1 O2 +2
-RSLa   . dlb(D1,L1,B1)                  t(L1,B1,D1)
+RSLa   . dlb(D1,L1,B1)                  t(L1,B1,D1,T1)
 RSLb  12 O1 +2 L2 +2           B2 +1  D2 +3  R1 +1 M3 +1 O2 +2
-RSLb   . r(R1) dlb(D2,L2,B2) m(M3)      t(L2,B2,D2)
+RSLb   . r(R1) dlb(D2,L2,B2) m(M3)      t(L2,B2,D2,T2)
 RSYa  12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RSYa   . r(R1) r(R3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2)
+RSYa   . r(R1) r(R3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2,T2)
 RSYas 12 O1 +2 R1 +1    R3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RSYas  . r(R1) r(R3) ldbs(DH2||DL2,B2)
 RSYb  12 O1 +2 R1 +1    M3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RSYb   . r(R1) m(M3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2)
+RSYb   . r(R1) m(M3) ldb(DH2||DL2,B2)   t(TL,B2,DH2||DL2,T2)
 RSYbm 12 O1 +2 R1 +1    M3 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RSYbm  . r(R1) m(M3) ldb(DH2||DL2,B2)   t(ml(M3),B2,DH2||DL2)
 RXa    8 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3
-RXa    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2)
+RXa    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2,T2)
 RXb    8 O1 +2 M1 +1    X2 +1  B2 +1  D2 +3
 RXb    . m(M1) dxb(D2,X2,B2)
 RXE   12 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3   . +1  . +1 O2 +2
-RXE    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2)
+RXE    . r(R1) dxb(D2,X2,B2)            t(TL,B2,D2,T2)
 RXE3  12 O1 +2 R1 +1    X2 +1  B2 +1  D2 +3  M3 +1  . +1 O2 +2
-RXE3   . r(R1) dxb(D2,X2,B2) m(M3)      t(TL,B2,D2)
+RXE3   . r(R1) dxb(D2,X2,B2) m(M3)      t(TL,B2,D2,T2)
 RXF   12 O1 +2 R3 +1    X2 +1  B2 +1  D2 +3  R1 +1  . +1 O2 +2
-RXF    . r(R1) r(R3) dxb(D2,X2,B2)      t(TL,B2,D2)
+RXF    . r(R1) r(R3) dxb(D2,X2,B2)      t(TL,B2,D2,T2)
 RXYa  12 O1 +2 R1 +1    X2 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
-RXYa   . r(R1) ldxb(DH2||DL2,X2,B2)     t(TL,B2,DH2||DL2)
+RXYa   . r(R1) ldxb(DH2||DL2,X2,B2)     t(TL,B2,DH2||DL2,T2)
 RXYb  12 O1 +2 M1 +1    X2 +1  B2 +1 DL2 +3 DH2 +2       O2 +2
 RXYb   . m(M1) ldxb(DH2||DL2,X2,B2)
 S      8 O1 +4 B2 +1    D2 +3
@@ -4193,13 +4193,13 @@ S      . db(D2,B2)                      t(TL,B2,D2)
 SI     8 O1 +2 I2 +2    B1 +1  D1 +3
 SI     . db(D1,B1) u(I2)                t(TL,B1,D1)
 SI0    8 O1 +2 I2 +2    B1 +1  D1 +3
-SI0    . db(D1,B1) m(I2)                t(1,B1,D1)
+SI0    . db(D1,B1) m(I2)                t(1,B1,D1,T1)
 SI1    8 O1 +2  . +2    B1 +1  D1 +3
-SI1    . db(D1,B1)                      t(TL,B1,D1)
+SI1    . db(D1,B1)                      t(TL,B1,D1,T1)
 SIL   12 O1 +4 B1 +1    D1 +3  I2 +4
-SIL    . db(D1,B1) s2(I2)               t(TL,B1,D1)
+SIL    . db(D1,B1) s2(I2)               t(TL,B1,D1,T1)
 SIY   12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
-SIY    . ldb(DH1||DL1,B1) s2(I2)        t(TL,B1,DH1||DL1)
+SIY    . ldb(DH1||DL1,B1) s2(I2)        t(TL,B1,DH1||DL1,T1)
 SIYm  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
 SIYm   . ldb(DH1||DL1,B1) m(I2)         t(1,B1,DH1||DL1)
 SIYx  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
@@ -4209,25 +4209,25 @@ SIYu   . ldb(DH1||DL1,B1) u(I2)         t(1,B1,DH1||DL1)
 SMI   12 O1 +2 M1 +1     . +1  B3 +1  D3 +3 RI2 +4
 SMI    . m(M1) r4(RI2) db(D3,B3)
 SSa   12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSa    . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1) t(l(L1),B2,D2)
+SSa    . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1)    t(l(L1),B2,D2,T2)
 SSa1  12 O1 +2 L1 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSa1   . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1) t(256,B2,D2)
+SSa1   . dlb(D1,L1,B1) db(D2,B2)        t(l(L1),B1,D1)    t(256,B2,D2)
 SSb   12 O1 +2 L1 +1    L2 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    t(l(L1),B1,D1) t(l(L1),B2,D2)
+SSb    . dlb(D1,L1,B1) dlb(D2,L2,B2)    t(l(L1),B1,D1,T1) t(l(L2),B2,D2,T2)
 SSc   12 O1 +2 L1 +1    I3 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)  t(L1,B1,D1)
+SSc    . dlb(D1,L1,B1) db(D2,B2) u(I3)  t(TL,B1,D1,T1)
 SSd   12 O1 +2 R1 +1    R3 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSd    . db(D1,B1) db(D2,B2) r(R3)
 SSe   12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
-SSe    . r(R1) r(R3) db(D2,B2) db(D4,B4) t(hM(4),B2,D2) t(hM(4),B4,D4)
+SSe    . r(R1) r(R3) db(D2,B2) db(D4,B4) t(TL,B2,D2,T2)    t(TL,B4,D4,T1)
 SSe1  12 O1 +2 R1 +1    R3 +1  B2 +1  D2 +3  B4 +1  D4 +3
 SSe1   . r(R1) r(R3) db(D2,B2) db(D4,B4)
 SSf   12 O1 +2 L2 +2           B1 +1  D1 +3  B2 +1  D2 +3
-SSf    . db(D1,B1) dlb(D2,L2,B2)        t(16,B1,D1)     t(L2,B2,D2)
+SSf    . db(D1,B1) dlb(D2,L2,B2)         t(16,B1,D1,T1)    t(L2,B2,D2)
 SSE   12 O1 +4                 B1 +1  D1 +3  B2 +1  D2 +3
-SSE    . db(D1,B1) db(D2,B2)            t(TL,B2,D2)
+SSE    . db(D1,B1) db(D2,B2)             t(TL,B2,D2,T2)
 SSF   12 O1 +2 R3 +1    O2 +1  B1 +1  D1 +3  B2 +1  D2 +3
-SSF    . db(D1,B1) db(D2,B2) r(R3)      t(TL,B2,D2)
+SSF    . db(D1,B1) db(D2,B2) r(R3)       t(TL,B2,D2,T2)
 VRIa  12 O1 +2 V1 +1     . +1  I2 +4   . +1                    RXB +1 O2 +2
 VRIa   . v(V1) u(I2)
 VRIa3 12 O1 +2 V1 +1     . +1  I2 +4  M3 +1                    RXB +1 O2 +2
@@ -4533,7 +4533,7 @@ STNSM   AC   SI     . Store Then And System Mask =1
 STOSM   AD   SI     . Store Then Or System Mask =1
 SIGP    AE   RSA    c Signal Processor
 MC      AF   SI     . Monitor Call
-LRA     B1   RXa    c Load Real Address (32) . A
+LRA     B1   RXa    c Load Real Address (32) =4 . A
 STIDP   B202 S      . Store CPU ID =8
 SCK     B204 S      c Set Clock =8
 STCK    B205 S      c Store Clock =8
@@ -4961,7 +4961,7 @@ ICM     BF   RSb    A Insert Characters under Mask
 LARL    C00  RILb  R8 Load Address Relative Long
 LGFI    C01  RILa   . Load Immediate (64<-32)
 BRCL    C04  RILc   R Branch Relative on Condition Long
-JASL    C05  RILb  R4 Branch Relative and Save Long
+JASL    C05  RILb  R8 Branch Relative and Save Long
 XIHF    C06  RILax  A Exclusive-Or Immediate (high) (0-31)
 XILF    C07  RILax  A Exclusive-Or Immediate (low) (32-63)
 IIHF    C08  RILax  . Insert Immediate (high) (0-31)
@@ -5020,7 +5020,7 @@ ALSIH   CCA  RILa   A Add Logical with Signed Immediate High (32)
 ALSIHN  CCB  RILa   A Add Logical with Signed Immediate High (32)
 CIH     CCD  RILa   C Compare Immediate High (32)
 CLIH    CCF  RILa   C Compare Logical Immediate High (32)
-TRTR    D0   SSa1   c Translate and Test Reverse
+TRTR    D0   SSa1   c Translate and Test Reverse =l(L1)
 MVN     D1   SSa    . Move Numerics =l(L1)
 MVC     D2   SSa    . Move Character =l(L1)
 MVZ     D3   SSa    . Move Zones =l(L1)
@@ -5035,11 +5035,11 @@ TR      DC   SSa1   . Translate =l(L1)
 TRT     DD   SSa1   c Translate and Test =l(L1)
 ED      DE   SSa    A Edit =l(L1) . P
 EDMK    DF   SSa    A Edit and MarK =l(L1) . P
-PKU     E1   SSf    . Pack Unicode =16 . P
+PKU     E1   SSf    . Pack Unicode =16 P
 UNPKU   E2   SSa    c Unpack Unicode =l(L1) . P
 LTG     E302 RXYa   A Load and Test (64) =8 . FD
 LRAG    E303 RXYa   c Load Real Address (64) =8 . AD
-LG      E304 RXYa   . Load (64) =8 . AD
+LG      E304 RXYa   . Load (64) =8 . FD
 CVBY    E306 RXYa   . Convert to Binary (32) =8 . P
 AG      E308 RXYa   A Add (64) =8 . FD
 SG      E309 RXYa   A Subtract (64) =8 . FD
@@ -5155,8 +5155,8 @@ STRAG   E502 SSE    . Store Real Address =8
 MVCSK   E50E SSE    . Move with Source Key
 MVCDK   E50F SSE    . Move with Destination Key
 MVHHI   E544 SIL    . Move (16<-16) =2 H
-MVGHI   E548 SIL    . Move (64<-16) =8 F
-MVHI    E54C SIL    . Move (32<-16) =4 FD
+MVGHI   E548 SIL    . Move (64<-16) =8 FD
+MVHI    E54C SIL    . Move (32<-16) =4 F
 CHHSI   E554 SIL    C Compare Halfword Immediate (16<-16) =2 H
 CLHHSI  E555 SIL    C Compare Logical Immediate (16<-16) =2 H
 CGHSI   E558 SIL    C Compare Halfword Immediate (64<-16) =8 FD
@@ -5338,7 +5338,7 @@ VMN     E7FE VRRc4  . Vector Minimum
 VMX     E7FF VRRc4  . Vector Maximum
 MVCIN   E8   SSa    . Move Inverse =l(L1)
 PKA     E9   SSf    . Pack ASCII =16 P
-UNPKA   EA   SSa    c UnPacK ASCII =l(L1) P
+UNPKA   EA   SSa    c UnPacK ASCII =l(L1) . P
 LMG     EB04 RSYa   . Load Multiple (64)  =hM(8) . FD
 SRAG    EB0A RSYas  A Shift Right Single (64)
 SLAG    EB0B RSYas  A Shift Left Single (64)
@@ -5492,8 +5492,8 @@ TDCDT   ED54 RXE    c Test Data Class (LD)
 TDGDT   ED55 RXE    c Test Data Group (LD)
 TDCXT   ED58 RXE    c Test Data Class (ED)
 TDGXT   ED59 RXE    c Test Data Group (ED)
-LEY     ED64 RXYa   . Load (Short) =4
-LDY     ED65 RXYa   . Load (Long) =8
+LEY     ED64 RXYa   . Load (Short) =4 . E
+LDY     ED65 RXYa   . Load (Long) =8 . D
 STEY    ED66 RXYa   . Store (Short) =4
 STDY    ED67 RXYa   . Store (Long) =8
 CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2)
