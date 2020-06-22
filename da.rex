@@ -787,7 +787,7 @@ trace o
 
   /* The following is a hack to ensure that any tags or action characters
      appended to the very end of the hex input data are actually processed  */
-  if pos(sAction,'.,/') > 0 & isReferredTo(g.0XLOC) /* If trailing action    */
+  if pos(sAction,'.,/') > 0 & isReferenced(g.0XLOC) /* If trailing action   */
   then call saveStmt 'DS','0X'    /* Emit a label and any directives        */
   else call save ''               /* Emit only directives for this location */
   call nextLoc +1 /* Prevent repeating any directives on the last statement */
@@ -857,7 +857,7 @@ trace o
           nEx = g.0STMT#.xLocInst
           parse var g.0STMT.nEx sExOp sExOperand .
           sStmt = overlay(strip(sDesc) sExOp sExOperand,g.0STMT.n,40)
-          call emitStmt sLabel,substr(g.0STMT.n,10)
+          call emitStmt sLabel,substr(sStmt,10)
         end
         when inSet(sOp,'BALR BASSM BASR BAL BAS BAKR PC SVC') then do
           call emitStmt sLabel,substr(g.0STMT.n,10)
@@ -923,13 +923,13 @@ trace o
       n = sorted.i
       nLoc = g.0REFLOC.n    /* A referenced storage location */
       xLoc = d2x(nLoc)
-      if g.0DEF.nLoc = '' & g.0DOTS.xLoc = '' /* If it is a new undefined label */
+      if g.0ASS.nLoc = '',  /* Label not in disassembly listing */
+       & g.0DOTS.xLoc = ''  /* Not already in the input (.xxx) tags */
       then do
-        xLoc = d2x(nLoc)
         sType = g.0CTYPE.xLoc
         if sType = ''
-        then 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc')"'
-        else 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.='xLoc'='sType')"'
+        then 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.'xLoc')"'
+        else 'LINE_AFTER' g.0FIRSTCSECT '= "' g.0TAGPREFIX '(.'xLoc'='sType')"'
       end
     end
   end
@@ -987,7 +987,7 @@ onSyntax:
   parse upper var sSourceLine sInst . . sExpr
   if sInst = 'INTERPRET'
   then say 'DIS0100E Invalid input at location' g.0XLOC8': "'value(sExpr)'"'
-  else say 'DIS0100E Invalid input at location' g.0XLOC8
+  else say 'DIS0101E Invalid input at location' g.0XLOC8
 return ''
 
 readMeta: procedure expose g.
@@ -1037,7 +1037,7 @@ readMeta: procedure expose g.
         then do
           call attachSection xLoc,sName
           sName = translate(sName,'##','@*')
-          call defLabel sName,xLoc
+          call refLabel sName,xLoc
         end
       end
     end
@@ -1064,7 +1064,7 @@ readMeta: procedure expose g.
         then do
           sName = translate(sName,'##','@*') /* @*xxxxxx --> ##xxxxxx */
           call attachSection xLoc,sName
-          call defLabel sName,xLoc
+          call refLabel sName,xLoc
         end
       end
       nRow = seek('TYPE 20 - CESD','NEXT')
@@ -1414,12 +1414,12 @@ handleTag: procedure expose g.
         nLen = ''
         do nChar = 1 to length(sToken)
           c = substr(sToken,nChar,1)
-          if pos(c,'01234567890') = 0 then leave
+          if pos(c,'0123456789') = 0 then leave
           nRep = nRep || c
         end
         do nChar = nChar to length(sToken)
           c = substr(sToken,nChar,1)
-          if pos(c,'01234567890') > 0 then leave
+          if pos(c,'0123456789') > 0 then leave
           sTyp = sTyp || c
         end
         nLen = substr(sToken,nChar)
@@ -1672,7 +1672,7 @@ saveRegisterEquates:
       sEquate = g.0VES.x
       if sEquate <> ''
       then do
-        call emit left(sEquate,12) 'EQU   'i
+        call save left(sEquate,12) 'EQU   'i
       end
     end
     call saveCommentBlock 'Vector floating point format equates'
@@ -1681,7 +1681,7 @@ saveRegisterEquates:
       sEquate = g.0FPF.x
       if sEquate <> ''
       then do
-        call emit left(sEquate,13) 'EQU   'i
+        call save left(sEquate,13) 'EQU   'i
       end
     end
   end
@@ -1923,7 +1923,7 @@ decodeData: procedure expose g.
             when g.0FIELDVAR.nField \= '' then do /* Assign field to variable */
               parse var sData sField +(nLen) sData /* Get field*/
               s = decodeDataField(sField) /* Decode the field as g.0TYPE */
-              interpret '$'g.0FIELD.nField '=' c2d(sField)
+              interpret '$'g.0FIELDVAR.nField '=' c2d(sField)
             end
             when g.0FIELDEXP.nField \= '' then do /* Compute field length */
               interpret 'nLen =' g.0FIELDEXP.nField
@@ -1969,7 +1969,7 @@ getSlices: procedure expose g.
   do i = 1 to g.0DOT.0 while g.0DOT.i <= nLo
     /* Ignore dots before this window */
   end
-  do i = 1 to g.0DOT.0 while g.0DOT.i <= nHi
+  do i = i to g.0DOT.0 while g.0DOT.i <= nHi
     /* Process any dots inside the window */
     nAbsHi = g.0DOT.i
     /* Example:  List of (.=xxx) tags:
@@ -2071,7 +2071,7 @@ doAddress: procedure expose g.
         call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
       end
       otherwise do              /* Generate ALn(decimal)               */
-        call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
+        call saveStmt 'DC',ald(xField),x(xField),g.0XLOC8 xField
       end
     end
   end
@@ -2086,7 +2086,7 @@ doAddress: procedure expose g.
         call saveStmt 'DC',al(sLabel,3),x(xField),g.0XLOC8 xField
       end
       otherwise do              /* Generate ALn(decimal)                */
-        call saveStmt 'DC',ald(xData),x(xField),g.0XLOC8 xField
+        call saveStmt 'DC',ald(xField),x(xField),g.0XLOC8 xField
       end
     end
   end
@@ -2107,7 +2107,7 @@ doAddress8: procedure expose g.
       else call saveStmt 'DC',adl(sLabel,8),x(xField),g.0XLOC8 xField
     end
     otherwise do              /* Generate ADLn(decimal)               */
-      call saveStmt 'DC',adld(xData),x(xField),g.0XLOC8 xField
+      call saveStmt 'DC',adld(xField),x(xField),g.0XLOC8 xField
     end
   end
   call nextLoc +nField
@@ -2472,7 +2472,7 @@ declets: procedure
   nValue = ''
   do i = 1 to length(bSignificand) by 10
     nDeclet = declet(substr(bSignificand,i,10))
-    nValue = nValue || nDeclets
+    nValue = nValue || nDeclet
   end
 return nValue
 
@@ -2544,7 +2544,6 @@ doUnspecified: procedure expose g.
     then do
       nField = min(g.0MAXLEN.sType,nField)
       parse var sData sField +(nField) sData
-      xField = c2x(sField)
       sTemp = doType(sType,sField)
     end
   end
@@ -3389,7 +3388,7 @@ refLabel: procedure expose g. /* Implicitly define a referenced label */
     g.0REFLOC.n = nLoc        /* Location in decimal so it can be sorted */
     g.0REFLOC.0 = n
   end
-return
+return sLabel
 
 setLabel: procedure expose g.
   parse arg sLabel,xLoc
@@ -3509,6 +3508,7 @@ return bAlreadySorted
 
 prolog:
   g. = ''
+  call setLoc 0       /* Location counter from start of module (integer) */
   g.0INST   = 0       /* Number of instructions emitted                  */
   g.0TODO   = 0       /* Number of bad instructions (TODO's) emitted     */
   g.0HARDBLANK = 'ff'x /* Hard blank to help with parsing                */
@@ -3518,10 +3518,10 @@ prolog:
   g.0MN.0   = 0       /* Instruction mnemonic count                      */
   g.0DSECT.0 = 0      /* DSECT count                                     */
   g.0REFLOC.0 = 0     /* Number of referenced locations                  */
-  call setLoc 0       /* Location counter from start of module (integer) */
   g.0ISCODE = 1       /* 1=Code 0=Data                                   */
   g.0DOT.0 = 0        /* Number of dots to be inserted                   */
   g.0FIELD.0 = 0      /* Number of fields when parsing a table entry     */
+  g.0DIAG.  = 0       /* DIAG macro is to be inserted                    */
   do i = 1 until sourceline(i) = 'BEGIN-FORMAT-DEFINITIONS'
   end
   do i = i+1 while sourceline(i) <> 'END-FORMAT-DEFINITIONS'
@@ -3714,7 +3714,6 @@ prolog:
                  'RECFM(V B) BLKSIZE(27920) LRECL(259)',
                  'SPACE('nPri','nSec') AVBLOCK(130) REUSE'
     g.0LINE = 0
-    g.0BACKREF.0 = 0
     g.0ARGS = translate(sArgs)
     call getOptions
   end
