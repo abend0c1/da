@@ -2680,7 +2680,7 @@ doBinary: procedure expose g.
     do while length(sData) > 0
       parse var sData sChunk +16 sData /* 16 bytes at a time */
       do while length(sChunk) > 0
-        sBin = doResidual(sChunk)
+        sChunk = doResidual(sChunk)
       end
     end
   end
@@ -3521,7 +3521,7 @@ prolog:
   g.0ISCODE = 1       /* 1=Code 0=Data                                   */
   g.0DOT.0 = 0        /* Number of dots to be inserted                   */
   g.0FIELD.0 = 0      /* Number of fields when parsing a table entry     */
-  g.0DIAG   = 0       /* DIAG macro is to be inserted                    */
+  g.0DIAG     = 0       /* DIAG macro is to be inserted                    */
   do i = 1 until sourceline(i) = 'BEGIN-FORMAT-DEFINITIONS'
   end
   do i = i+1 while sourceline(i) <> 'END-FORMAT-DEFINITIONS'
