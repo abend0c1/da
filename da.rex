@@ -168,7 +168,7 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **            ASM     - Generate an assembly job that you can submit **
 **                      to verify the disassembled source is valid.  **
 **                                                                   **
-** LOGIC    - 1. Read the hex input file and extrat the hex and any  **
+** LOGIC    - 1. Read the hex input file and extract the hex and any **
 **               tags describing the hex. Create tags to label each  **
 **               CSECT name found (if any).                          **
 **                                                                   **
@@ -313,10 +313,10 @@ BEGIN-JCL-COMMENTS
 **    (t)       Converts the following data to data type t, where    **
 **              t can be one of the following:                       **
 **                                                                   **
-**              x  Type            Length   Generates (for example)  **
+**              t  Type            Length   Generates (for example)  **
 **              -- -------         ------   ------------------------ **
 **              A  Address         4        AL4(L304)                **
-**              AD Address (Long)  4        AD(L304)                 **
+**              AD Address (Long)  8        AD(L304)                 **
 **              B  Binary          1        B'10110011'              **
 **              C  Character       n        CL9'Some text'           **
 **              D  Long Hex Float  8        D'3.141592653589793'     **
@@ -356,8 +356,9 @@ BEGIN-JCL-COMMENTS
 **              t  Type            Length                            **
 **              -- -------         ------                            **
 **              A  Address         4                                 **
-**              AD Address (long)  4                                 **
+**              AD Address (long)  8                                 **
 **              B  Binary          1                                 **
+**              C  Character       1                                 **
 **              D  Long Hex Float  8                                 **
 **              DH Long Hex Float  8                                 **
 **              DB Long Bin Float  8                                 **
@@ -367,7 +368,6 @@ BEGIN-JCL-COMMENTS
 **              EB Short Bin Float 4                                 **
 **              ED Short Dec Float 4                                 **
 **              FD Doubleword      8                                 **
-**              C  Character       1                                 **
 **              F  Fullword        4                                 **
 **              H  Halfword        2                                 **
 **              P  Packed          1                                 **
@@ -474,7 +474,7 @@ BEGIN-JCL-COMMENTS
 **              USING *,Rn,Rm                                        **
 **                                                                   **
 **    (Rn+Rm=Ry) Same as (Rn+Rm) except that Rn+Rm points to the     **
-**              location curently declared for Ry.                   **
+**              location currently declared for Ry.                  **
 **              The equivalent assembler directive is:               **
 **              DROP  Ry                                             **
 **              USING *,Rn,Rm                                        **
@@ -547,7 +547,7 @@ BEGIN-JCL-COMMENTS
 **              Some labels will be automatically created from the   **
 **              External Symbol Dictionary of the AMBLIST output.    **
 **                                                                   **
-**   (.xxx)     Assigns an automatically named assembler label to    **
+**    (.xxx)    Assigns an automatically named assembler label to    **
 **              location xxx in hexadecimal. Use this if you know in **
 **              advance which locations are referenced by machine    **
 **              instructions so that the location can be represented **
@@ -622,7 +622,7 @@ END-JCL-COMMENTS
 **                         Applied storage formats to instruction    **
 **                         operands instead of treating them all as  **
 **                         type X.                                   **
-**            20200508 AA  Renamed the t() function to t() to        **
+**            20200508 AA  Renamed the hint() function to t() to     **
 **                         save space in the definition data.        **
 **            20200507 AA  Added onSyntax trap to help identify the  **
 **                         location of the error in the input hex.   **
@@ -632,11 +632,11 @@ END-JCL-COMMENTS
 **                         useful for parsing error message tables.  **
 **            20200505 AA  Miscellaneous bug fixes.                  **
 **            20200501 AA  Emit A(label) if label is known.          **
-**            20200501 AA  Added '(Rnn[+Rnn..]=Rnn) tag.             **
+**            20200501 AA  Added '(Rnn[+Rnn...]=Rnn) tag.            **
 **            20200430 AA  Handle 31-bit addresses better.           **
 **            20200429 AA  Switch to data parsing mode on % tag.     **
 **            20200427 AA  Emit EQU for each undefined label.        **
-**            20200424 AA  Improved '%' tag parsing                  **
+**            20200424 AA  Improved '%' tag parsing.                 **
 **            20200421 AA  Added '%' tag for printing formatted      **
 **                         table entries.                            **
 **            20200420 AA  Insert a blank line before each label     **
@@ -740,7 +740,7 @@ trace o
    * 2. Disassemble hex
    *-------------------------------------------------------------------
   */
-  g.0ISCODE = 1       /* Set hex parsing mode (1=Code 0=Data) */
+  g.0ISCODE = 1       /* Set hex parsing mode (1=Code, 0=Data) */
   do while xData <> '' /* Disassemble the extracted hex data */
     parse var xData xChunk '('sTags')' xData
     xChunk = space(xChunk,0)
@@ -821,13 +821,13 @@ trace o
       end
       else sLabel = ''
       /* g.0CLENG.xLoc is the longest length actually used in an instruction
-        that references this location. If it is longer than the data length
-        assigned to this location then a 'DC 0XLnn' directive will be
-        inserted to cover the entire field referenced by the instruction.
+         that references this location. If it is longer than the data length
+         assigned to this location then a 'DC 0XLnn' directive will be
+         inserted to cover the entire field referenced by the instruction.
       */
       select
         when sOp = 'DC' &,       /* A constant, and...                     */
-            g.0CLENG.xLoc <> '' /* An instruction specified its length    */
+             g.0CLENG.xLoc <> '' /* An instruction specified its length    */
         then do
           if pos('(',sOperand) > 0
           then parse var sOperand sType'('sValue')'   /* A() style syntax  */
@@ -921,7 +921,7 @@ trace o
   then do
     do i = sorted.0 to 1 by -1 /* Reverse order so they appear in order! */
       n = sorted.i
-      nLoc = g.0REFLOC.n
+      nLoc = g.0REFLOC.n    /* A referenced storage location */
       xLoc = d2x(nLoc)
       if g.0DEF.nLoc = '' & g.0DOTS.xLoc = '' /* If it is a new undefined label */
       then do
@@ -1365,7 +1365,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inset(sTag,'A B C D E F H P S X AD FD EH DH EB ED DB DD') then do
+      | inSet(sTag,'A B C D E F H P S X AD FD EH DH EB ED DB DD') then do
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -1391,7 +1391,7 @@ handleTag: procedure expose g.
           when pos('=',sToken) > 0 then do  /* token=var */
             parse var sToken sToken'='sVar
           end
-          when pos('$',sToken) > 0 then do  /* token:expression */
+          when pos('$',sToken) > 0 then do  /* tokenLexpression */
             parse var sToken sToken'L'sExp
           end
           otherwise nop
@@ -1406,7 +1406,7 @@ handleTag: procedure expose g.
         2AL1    2 x data type A with explicit length of 1
         2       Data type X (default) of length 2     (type not specified)
         2x3     2 x data type X (default) of length 3 (when x is invalid type)
-        AL1=n   Parse 1 byte and assign it to variable n (rexx variable $n)
+        AL1=n   Parse 1 byte and assign it to variable $n
         CL$n+1  Parse $n+1 bytes of data type C
 */        
         nRep = ''
@@ -1453,7 +1453,7 @@ handleTag: procedure expose g.
         end
       end
     end
-    when sTag1 = 'R' & sRegisters <> '' then do  /* (Rnn[+Rmm...][=][label]) */
+    when sTag1 = 'R' & sRegisters <> '' then do  /* (Rnn[+Rmm...][=[label]]) */
       parse var sLabel sLabel"'"sDesc"'" /* Peel off the label description */
       sLabel = strip(sLabel)
       select
@@ -1493,7 +1493,7 @@ handleTag: procedure expose g.
             dLoc = dLoc + 4096
           end
           call attachDirective g.0XLOC,'USING' sLabel','using(sRegisters),1
-          call refLabel label(xLoc),g.0XLOC
+          call refLabel label(xLoc),g.0XLOC /* Define and reference label */
         end
         when sLabel = '' then do       /* (Rnn[+Rmm...]=)          */
           /* DROP Rnn[,Rmm...] */
@@ -1503,13 +1503,13 @@ handleTag: procedure expose g.
             x = d2x(nn)                /* Base register (0 to F) */
             g.0CBASE.x = ''
             g.0DBASE.x = ''
-            sDrop = sDrop' ,R'nn
+            sDrop = sDrop',R'nn
           end
           call attachDirective g.0XLOC,'DROP  'substr(sDrop,2),1
         end
         otherwise do                   /* (Rnn[+Rnn...]=label)     
                                        or (Rnn[+Rnn...]=offset)
-                                       or (Rnn[+Rnn...]=Rnn        */
+                                       or (Rnn[+Rnn...]=Rnn)       */
           /* USING label,Rnn[,Rmm...] */
           nReg = getRegisterList(sLabel) /* Is nn when sLabel is Rnn */
           select
@@ -1733,7 +1733,7 @@ saveDSECTs:
   end
 return
 
-dtl: procedure expose g. /* Duplication Type Length (e.g. 2AL4 */
+dtl: procedure expose g. /* Duplication Type Length (e.g. 2AL4) */
   arg sType,nLen                            /* sType nLen nMax             */
   if nLen = 0 then return '0'sType          /*   A     0    4  --> 0A      */
   nMax = g.0MAXLEN.sType
@@ -1745,7 +1745,7 @@ dtl: procedure expose g. /* Duplication Type Length (e.g. 2AL4 */
   nDup = nLen % nMax
 return nDup || sType                        /*   A     8    4  --> 2A      */
 
-tl: procedure expose g. /* Type Length (e.g. AL4 */
+tl: procedure expose g. /* Type Length (e.g. AL4) */
   arg sType,nLen                            /* sType nLen nMax             */
   if nLen = 0 then return sType             /*   A     0    4  --> A       */
   nMax = g.0MAXLEN.sType
@@ -1771,7 +1771,7 @@ saveUndefinedLabels:
   nUndefinedLabels = 0
   do i = 1 to sorted.0
     n = sorted.i
-    nLoc = g.0REFLOC.n      /* A rerferenced storage location */
+    nLoc = g.0REFLOC.n      /* A referenced storage location */
     if g.0ASS.nLoc = ''     /* Label not in disassembly listing */
     then do
       nUndefinedLabels = nUndefinedLabels + 1
@@ -1967,7 +1967,7 @@ getSlices: procedure expose g.
   nAbsHi = nHi
   nRelLo = 1
   do i = 1 to g.0DOT.0 while g.0DOT.i <= nLo
-    /* Ingore dots before this window */
+    /* Ignore dots before this window */
   end
   do i = 1 to g.0DOT.0 while g.0DOT.i <= nHi
     /* Process any dots inside the window */
@@ -1991,7 +1991,7 @@ getSlices: procedure expose g.
                             |   |
                         nRelLo  nRelHi
                             1   5
-                            <--->  nLen = 4
+                            <-->  nLen = 4
     OUTPUT:      g.0SLICE.0=2                   Number of slices
                  g.0SLICE.1=xxxx                len=4
                  g.0SLICE.2=yyyyyyyyyyyyy       len=13
@@ -2198,7 +2198,7 @@ return sData
 
 getPackedLen: procedure
   arg xData
-  nPos = verify(xData,'ABCDEF','MATCH') /* Poisition of sign nibble */
+  nPos = verify(xData,'ABCDEF','MATCH') /* Position of sign nibble  */
   if nPos < 1 | nPos > 16 | nPos//2 = 1 /* If position is no good   */
   then return 0
 return nPos/2
@@ -2437,7 +2437,7 @@ dfp: procedure expose g. /* Decimal Floating Point */
   select
     when nField = 8 then do  /* Short */
       nRBE = 6               /* Remaining Biased Exponent bits */
-      nBias = 101            /* Right-Units View (RUV) exponent bits */
+      nBias = 101            /* Right-Units View (RUV) exponent bias */
     end
     when nField = 16 then do /* Long */
       nRBE = 8
@@ -2557,6 +2557,7 @@ doUnspecified: procedure expose g.
   .BCDEF      1             2
   ABCDEF      0             1
   ......      1             0
+
 */
   select
     when nFirstText = 0 then do     /* All binary */
@@ -2695,7 +2696,7 @@ doResidual: procedure expose g.
   end
 return ''
 
-adcon: procedure expose g.
+adcon: procedure expose g. /* Named address e.g. A(FIELD) */
   parse arg sAddr
   if length(sAddr) \= 4 then return ''
   if sAddr = '00000000'x then return ''
@@ -2822,12 +2823,12 @@ decodeInst: procedure expose g.
   arg 1 aa +2 1 bbbb +4 4 c +1 11 dd +2 0 xInst
 /*
    Opcodes can only come from certain places in an instruction:
-   Instruction      Type (for the purposes of this disassembler)
-   ------------     ---- 
-   aa.......... -->  1
-   bbbb........ -->  2
-   cc.c........ -->  3
-   dd........dd -->  4
+   Instruction   Type (for the purposes of this disassembler)
+   ------------  ---- 
+   aa..........   1
+   bbbb........   2
+   cc.c........   3
+   dd........dd   4
 
    So, given 6 bytes of hex, we need to check if there is valid opcode
    for each of these sources. If not, then return a 2-byte constant and move
@@ -2868,7 +2869,7 @@ decodeInst: procedure expose g.
                       R1 R2 R3,           /* Register               */
                       V1 V2 V3 V4,        /* Vector register LSBs   */
                       X1 X2,              /* Index register         */
-                      Z                   /* Zero reamining bits    */
+                      Z                   /* Zero remaining bits    */
   interpret 'parse var xInst' sParser /* 1. Parse the instruction          */
   if RXB <> '' /* If this is a Vector instruction */
   then do      /* Each Vector register is 5-bits wide: 32 registers */
@@ -2878,8 +2879,8 @@ decodeInst: procedure expose g.
     V3 = RXB3||V3 /* Prepend high order bit to the V3 operand */
     V4 = RXB4||V4 /* Prepend high order bit to the V4 operand */
   end
-  interpret 'TL =' sHint        /* 2. Get length hint from xOpCode   */
-  parse var TL TL T1 T2         /*    TL=length Tn=nTh operand type  */
+  interpret 'TL =' sHint              /* 2. Get length hint from xOpCode   */
+  parse var TL TL T1 T2               /*    TL=length Tn=nTh operand type  */
   if T1 = '.' then T1 = ''
   if T2 = '.' then T2 = ''
   if T1||T2 <> ''
@@ -2893,7 +2894,7 @@ decodeInst: procedure expose g.
 
   /* Post decode tweaking: extended mnemonics are a bit easier to read  */
   if inSet(sFlag,'A C C8 c M')
-  then g.0CC = left(sFlag,1) /* Instruction type that sets condition code       */
+  then g.0CC = left(sFlag,1) /* Instruction type that sets condition code */
 
   select
     when sMnemonic = 'DIAG' then do
@@ -3300,7 +3301,7 @@ s3: procedure  /* Signed 12-bit integer (3 nibbles) */
   arg xData .
 return x2d(xData,3)
 
-s4: procedure  /* Signed 32-bit integer (4 nibbles) */
+s4: procedure  /* Signed 16-bit integer (4 nibbles) */
   arg xData .
 return x2d(xData,4)
 
@@ -3790,12 +3791,12 @@ addFormat: procedure expose g.
     g.0PARS.sFormat = sParseTemplate
 /*
    Opcodes can only come from certain places in an instruction:
-   Instruction      Type Opcode comprises O1 concatenated with O2
-   ------------     ---- ----------------------------------------
-   aa.......... -->  1   O1 is 2 nibbles
-   bbbb........ -->  2   O1 is 4 nibbles
-   cc.c........ -->  3   O1 is 2 nibbles and O2 is 1 nibble
-   dd........dd -->  4   O1 is 2 nibbles and O2 is 2 nibbles
+   Instruction   Type Opcode comprises O1 concatenated with O2
+   ------------  ---- ----------------------------------------
+   aa..........   1   O1 is 2 nibbles
+   bbbb........   2   O1 is 4 nibbles
+   cc.c........   3   O1 is 2 nibbles and O2 is 1 nibble
+   dd........dd   4   O1 is 2 nibbles and O2 is 2 nibbles
 */
     if g.0OPCD.sFormat = ''
     then do
@@ -5749,11 +5750,11 @@ CC  z/VM CMSCALL
 END-SVC-LIST
 
 The following table is used to translate floating point special values into
-nominal values that can be assemblred by HLASM. Strictly, +/-0 are not special
+nominal values that can be assembled by HLASM. Strictly, +/-0 are not special
 values, but they are common enough to translate directly rather than perform
 an elaborate conversion.
 
-.-- Type (t) and Type Extension(e)
+.-- Type (t) and Type Extension (e)
 |   EH = Short Hex Floating Point (HFP)
 |   EB = Short Binary Floating Point (BFP)
 |   ED = Short Decimal Floating Point (DFP)
