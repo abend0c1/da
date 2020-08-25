@@ -42,6 +42,12 @@ This can be very handy for mainframe sites that have somehow lost the source cod
     ...then it will disassemble the file being edited and edit 
     the temporary dataset created as a result.
 
+*   If DA is invoked with hex on the command line then 
+    that hex will be disassembled, for example:
+
+    `DA 58100010 07FE`
+
+
 ## OVERVIEW
 
 Disassembly is usually an iterative process:
@@ -181,10 +187,12 @@ Disassembly is usually an iterative process:
 
 * When invoked from ISPF/EDIT to dissassemble AMBLIST output:
 
-   `DA [(options...]`
+   `DA [hex] [(options...]`
 
    Where,
 
+   * `hex` - Optional hex to be disassembled directly from the command line.
+   
    * `options` are:
 
      `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the end of the generated source file.

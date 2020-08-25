@@ -149,12 +149,17 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **            load module, printed with AMBLIST and used to check    **
 **            that DA can disassemble all instructions correctly.    **
 **                                                                   **
-** SYNTAX   - DA [dsn] [(options...]                                 **
+** SYNTAX   - DA [dsn | hex] [(options...]                           **
 **                                                                   **
 **            Where,                                                 **
 **            dsn     = Load module to be printed using AMBLIST. The **
 **                      dataset name must be fully qualified and     **
 **                      include the module name in parentheses.      **
+**                                                                   **
+**            hex     = Hex to be disassembled. If this is omitted   **
+**                      then the hex is read from the file being     **
+**                      edited.                                      **
+**                                                                   **
 **                                                                   **
 **            options =                                              **
 **                                                                   **
@@ -610,6 +615,8 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20200825 AA  Allowed hex to be supplied on the command **
+**                         line.                                     **
 **            20200605 AA  Major redesign for version 3.0.           **
 **            20200525 AA  Implemented equates for Element Size and  **
 **                         Floating Point Format in vector instruc-  **
@@ -693,9 +700,15 @@ END-JCL-COMMENTS
 **********************************************************************/
 trace o
   signal on syntax name onSyntax
-  parse arg sDsn'('sMod')' '('sOptions
-  if sDsn = '' then parse arg '('sOptions
-  sDsn = strip(sDSN,'BOTH',"'")
+  parse arg xData'('sOptions
+  xData = space(xData,0)
+  if \isHex(xData)
+  then do
+    parse arg sDsn sOptions
+    parse var sDsn sDsn'('sMod')'
+    parse var sOptions '('sOptions
+    sDsn = strip(sDSN,'BOTH',"'")
+  end
   parse source . . me .
   address ISPEXEC 'CONTROL ERRORS RETURN'
   numeric digits 22
@@ -726,14 +739,18 @@ trace o
    * 1. Extract the hex input
    *-------------------------------------------------------------------
   */
-  xMeta = readMeta()          /* Determine the input format          */
-  if g.0AMBLIST
+
+  if \isHex(xData)        /* If hex not supplied on the command line */
   then do
-    if g.0PGMOBJ
-    then xData = readProgramObject()
-    else xData = readModule()
+    xMeta = readMeta()          /* Determine the input format          */
+    if g.0AMBLIST
+    then do
+      if g.0PGMOBJ
+      then xData = readProgramObject()
+      else xData = readModule()
+    end
+    else   xData = readRawHex()
   end
-  else   xData = readRawHex()
 
   /*
    *-------------------------------------------------------------------
@@ -3692,7 +3709,8 @@ prolog:
   then do /* Direct output to a temporary dataset and then edit it */
     address ISREDIT
     'MACRO (sArgs)'
-    if rc <> 0 /* If not already editing a file */
+    if rc <> 0 & \isHex(xData) /* If not already editing a file */
+               /* and hex data was not supplied on the command line   */
     then do    /* Then edit a temporary file and insert an AMBLIST job */
       sTempFile = getTempFileName()'E'
       call quietly 'ALLOCATE FILE(OUT) DATASET('sTempFile')',
@@ -3706,6 +3724,7 @@ prolog:
     '(member) = MEMBER'   /* Member currently being edited */
     '(dataset) = DATASET' /* Dataset currently being edited */
     '(lines) = LINENUM .ZLAST' /* Number of lines being edited */
+    if \isNum(lines) then lines = 1
     nPri = lines * 10
     nSec = lines
     address ISPEXEC 'CONTROL ERRORS RETURN'
@@ -3720,7 +3739,9 @@ prolog:
 return
 
 getOptions:
-  parse var g.0ARGS '('sOptions
+  parse var g.0ARGS xArgs'('sOptions
+  xArgs = space(xArgs,0) /* Save any hex data supplied on the command line */
+  if \isHex(xData) then xData = xArgs
   g.0OPTION.TEST = 0
   g.0OPTION.STAT = 0
   do i = 1 to words(sOptions)
