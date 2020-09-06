@@ -343,8 +343,8 @@ immediately before the hex to which they apply:
     | t   | Type      | Length | Generates (for example) |
     | --- | ---       | --- | --- |
     | `A` | Address   |4| `AL4(L304)` |
-    | `AD` | Address (Long)  |8| `AD(L304)` |
-    | `B` | Binary    |1| `B'10110011'` |
+    | `AD`| Address (Long)  |8| `AD(L304)` |
+    | `B` | Binary    |n| `B'10110011'` |
     | `C` | Character |n| `CL9'Some text'` |
     | `D` | Long Hex Float |8| `D'+3.141592653589793'` |
     | `DH`| Long Hex Float |8| `DH'+3.141592653589793'` |
@@ -354,11 +354,11 @@ immediately before the hex to which they apply:
     | `EH`| Short Hex Float |4| `EH'+3.1415926'` |
     | `EB`| Short Bin Float |4| `EB'+3.1415926'` |
     | `ED`| Short Dec Float |4| `ED'+3.1415926'` |
-    | `FD` | Doubleword  |8| `FD'304'` |
-    | `F` | Fullword  |4| `F'304'` |
-    | `H` | Halfword  |2| `H'304'` |
-    | `P` | Packed    |n| `PL2'304'` |
-    | `S` | S-type    |2| `S(X'020'(R12))` |
+    | `FD`| Doubleword Binary |8| `FD'304'` |
+    | `F` | Fullword Binary |4| `F'304'` |
+    | `H` | Halfword Binary |2| `H'304'` |
+    | `P` | Packed Decimal |n| `PL2'304'` |
+    | `S` | Storage Reference |2| `S(X'020'(R12))` |
     | `X` | Hex       |n| `XL2'0304'` |
 
 * ## (%*formatspec*)
@@ -386,27 +386,26 @@ immediately before the hex to which they apply:
     | t   | Type      | Length |
     | --- | ---       | --- |
     | `A` | Address   |4|
-    | `AD` | Address (long)  |8|
+    | `AD`| Address (long)  |8|
     | `B` | Binary    |1|
     | `C` | Character |1|
     | `D` | Long Hex Float |8|
-    | `DH` | Long Hex Float |8|
+    | `DH`| Long Hex Float |8|
     | `DB`| Long Bin Float |8|
     | `DD`| Long Dec Float |8|
     | `E` | Short Hex Float |4|
-    | `EH` | Short Hex Float |4|
+    | `EH`| Short Hex Float |4|
     | `EB`| Short Bin Float |4|
     | `ED`| Short Dec Float |4|
-    | `FD` | Doubleword  |8|
-    | `F` | Fullword  |4|
-    | `H` | Halfword  |2|
-    | `P` | Packed    |1|
-    | `S` | S-type    |2|
+    | `FD`| Doubleword Binary |8|
+    | `F` | Fullword Binary |4|
+    | `H` | Halfword Binary |2|
+    | `P` | Packed Decimal |1|
+    | `S` | Storage Reference |2|
     | `X` | Hex       |1|
 
     If you specify an unsupported data type then the default format of `X` is used. As
-    a happy side effect, specifying `4x3` (which you could read as "four by three bytes")
-    is equivalent to `4XL3` or `XL3 XL3 XL3 XL3` or even just `3 3 3 3`. If you specify
+    a happy side effect, specifying `3 3 3 3` or even just `4x3` (which you could read as "four by three bytes"), is equivalent to `4XL3` or `XL3 XL3 XL3 XL3`. If you specify
     just a number then that number is treated as a length of a type `X` field.
 
     For example<sup>1</sup>,
