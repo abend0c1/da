@@ -56,7 +56,7 @@ Disassembly is usually an iterative process:
     identify which areas are data and which are code.
 
     If you see a comment in the output like `<-- TODO
-    (not code)` it means that the dissassembler was in
+    (not code)` it means that the disassembler was in
     CODE parsing mode but detected an invalid instruction. You should insert a dot (`.`) to switch the disassembler into DATA parsing mode at that point, and
     then insert a comma (`,`) to revert to CODE mode at the end
     of that block of data.
@@ -185,7 +185,7 @@ Disassembly is usually an iterative process:
 
     `TSO DA SYS1.LPALIB(IEFBR14)`
 
-* When invoked from ISPF/EDIT to dissassemble AMBLIST output:
+* When invoked from ISPF/EDIT to disassemble AMBLIST output:
 
    `DA [hex] [(options...]`
 
@@ -278,7 +278,7 @@ To disassemble a load module:
    * The first 80 columns of the disassembly are valid assembler
      statements and can be pasted into an FB80 file to be processed by 
      the HLASM assembler. That is, you can paste all the
-     dissassembled lines and ignore the truncation warning.
+     disassembled lines and ignore the truncation warning.
 
    * The remaining columns contain the following information that is useful during disassembly:
      
@@ -287,7 +287,7 @@ To disassemble a load module:
 
 1. Examine the "Undefined labels" report at the end of the disassembly to help you 
    identify where to insert CODE and DATA action markers. 
-   Labels will be created at each locatin referenced by a machine
+   Labels will be created at each location referenced by a machine
    instruction or address constant.
 
 1. Press F3 to quit editing the disassembly and return to the
