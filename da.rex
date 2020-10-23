@@ -35,7 +35,7 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **               identify which areas are data and which are code.   **
 **                                                                   **
 **               If you see a comment in the output like "<-- TODO   **
-**               (not code)" it means that the dissassembler was in  **
+**               (not code)" it means that the disassembler was in   **
 **               CODE parsing mode but detected an invalid instruc-  **
 **               tion. You should insert a "." to switch the dis-    **
 **               assembler into DATA parsing mode at that point, and **
@@ -177,7 +177,7 @@ Andrew J. Armstrong <androidarmstrong@gmail.com>
 **               tags describing the hex. Create tags to label each  **
 **               CSECT name found (if any).                          **
 **                                                                   **
-**            2. Dissassemble the hex producing a list of machine    **
+**            2. Disassemble the hex producing a list of machine     **
 **               instructions (code) or Define Constant (DC)         **
 **               directives (data) - along with the corresponding    **
 **               hex offset of each. If the user has specified tags  **
@@ -591,7 +591,7 @@ BEGIN-JCL-COMMENTS
 **    - The first 80 columns of the disassembly are valid assembler  **
 **      statements and can be pasted into an FB80 file to be proc-   **
 **      essed by the HLASM assembler. That is, you can paste all the **
-**      dissassembled lines and ignore the truncation warning.       **
+**      disassembled lines and ignore the truncation warning.        **
 **                                                                   **
 **    - The remaining columns contain the following information:     **
 **      location counter, instruction in hex, instruction format and **
