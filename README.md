@@ -2,10 +2,16 @@
 
 ## FUNCTION
 
-The DA rexx procedure disassembles the AMBLIST output (or indeed any printable hex) that you are currently editing with ISPF/EDIT. 
+The DA REXX procedure disassembles the AMBLIST output (or indeed any printable hex) that you are currently editing with ISPF/EDIT. 
 
-This can be very handy for mainframe sites that have somehow lost the source code to an important executable. All you need to do is run the DA edit macro against the output from an AMBLIST module listing of the executable. It is an iterative process, but at the end of the day you will have an assembler source file that, when assembled, should recreate the executable load module. With some effort it should also be possible to reconstruct an equivalent high level language (COBOL, PLI, etc) source file from the assembly language source.
+The DAB REXX procedure does the same thing but does not use ISPF/EDIT, so it can be run in TSO, batch, or even on Linux or Windows.
 
+This can be very handy for mainframe sites that have somehow lost the source code to an important executable. All you need to do is run DA or DAB against the output from an AMBLIST module listing of the executable. It is an iterative process, but at the end of the day you will have an assembler source file that, when assembled, should recreate the executable load module.
+
+
+## OVERVIEW
+
+DA is the interactive version of the disassembler and DAB is the batch version. The interactive version uses ISPF/EDIT and is generally more convenient to use on z/OS. DAB can be run in TSO or batch and, because it does not use ISPF/EDIT, it can also be run on Linux and Windows.
 
 *   If DA is invoked outside of the ISPF editor then it
     will generate and edit an AMBLIST job that you can
@@ -47,8 +53,28 @@ This can be very handy for mainframe sites that have somehow lost the source cod
 
     `DA 58100010 07FE`
 
+*   DAB can be run in batch, for example:
 
-## OVERVIEW
+    ```
+    //        EXEC PGM=IKJEFT01
+    //SYSEXEC   DD DISP=SHR,DSN=SYS1.MY.EXECLIB
+    //IN        DD DISP=SHR,DSN=SYS1.MY.AMBLIST.OUTPUT
+    //OUT       DD DISP=SHR,DSN=SYS1.MY.ASM(MEM)
+    //SYSTSIN   DD *
+    TSO DAB DD:IN DD:OUT
+    /*
+    ```
+*   DAB can be run in TSO (but DA is easier), for example:
+
+    `TSO DAB sys1.my.amblist.output sys1.my.asm(mem)`
+
+*   DAB can be run on Linux and Windows once you have downloaded the
+    AMBLIST output, for example:
+
+    `rexx dab.rex my.amblist.output my.asm`
+
+
+## WORKFLOW
 
 Disassembly is usually an iterative process:
 
@@ -168,46 +194,301 @@ Disassembly is usually an iterative process:
     Rerun DA and reassemble the output until all
     assembly errors are resolved.
 
+## EXAMPLE 
+
+Some samples of input and output files can be found in the /samples folder of this repository.
+
+A sample input file (with DA markup highlighted) is:
+
+<pre>
+A7F4000E <b style="color:red;">.</b> C7C5E3C3 D4C44040 F2F0F2F0 61F1F061 F2F140F1 F67AF5F5 <b style="color:red;">,</b> 90ECD00C
+18CF <b style="color:red;">(R12=0)</b> 1841 <b style="color:red;">(R4=>PLIST 'Parameter List')</b> 47F0C030 <b style="color:red;">(F)</b> 0000004C 00000012 <b style="color:red;">,</b> 5800C028 58F0C02C 58E00010 58EE0304
+58EE00A0 B218E000 12FFA774 006C50D0 10045010 D00818D1 <b style="color:red;">(R13=>WA 'Work Area')</b> 1244A784 005D9180
+4008A7E4 00594180 D0484110 C1305081 00009201 10089200 10090A28 5880D048
+58708000 58104008 50701000 58704000 92007000 58704004 D7FF7000 70005870
+80041277 A784002F 58904000 95447004 A7740006 92C69000 A7F40012 95407004
+A7740006 92D79000 A7F4000A 95047004 A7740015 92E29000 A7F40002 4850700E
+06501255 A744000B 58904004 D2009000 70104450 C0ECA7F4 00021117 41008004
+0A224110 00051111 41008004 11000A22 A7F40006 41F0000C A7F40003 1FFF58D0
+D00458E0 D00C980C D01407FE <b style="color:red;">('').</b> 00000000 00000000 00000000 00000000
+</pre>
+
+The meaning of the inserted markup is:
+
+Markup | Meaning
+---|---
+<b style="color:red;">.</b>|Decode the following hex as data (the data type is automatic)
+<b style="color:red;">,</b>|Decode the following hex as code
+<b style="color:red;">(R12=0)</b>|Assume that R12 points to offset 0 (insert a USING statement for R12)
+<b style="color:red;">(R4=>PLIST 'Parameter List')</b>|Assume that R4 points to a DSECT called PLIST, and insert a section heading 'Parameter List' before the DSECT definition. Subsequent storage references based on R4 will be added to the DSECT.
+<b style="color:red;">(F)</b>|Decode the following hex as data (type is fullword)
+<b style="color:red;">(R13=>WA 'Work Area')</b>|Assume that R13 points to a DSECT called WA, and insert a section heading 'Work Area' before the DSECT definition.  Subsequent storage references based on R13 will be added to the DSECT.
+<b style="color:red;">('').</b>|Insert an empty comment and treat the following hex as data
+
+
+The result of disassembling this input is:
+
+```
+@        START
+*Label   Op    Operands                Comment                                                     Location Hex          Format
+
+***********************************************************************
+*                                                                     *
+*                               GETCMD                                *
+*                                                                     *
+***********************************************************************
+         
+         ORG   @+X'00000000'
+
+GETCMD   J     L1C                                                                                 1 00000000 A7F4000E     RIc       
+         DC    CL24'GETCMD  2020/10/21 16:55'                                                      0 00000004 
+
+L1C      STM   R14,R12,12(R13)         Store Multiple (32)                                         1 0000001C 90ECD00C     RSA    60 (,F)
+         LR    R12,R15                 Load (32)                                                   1 00000020 18CF         RR        
+         USING GETCMD,R12
+*        ----------------
+         LR    R4,R1                   Load (32)                                                   1 00000022 1841         RR        
+         USING PLIST,R4
+*        --------------
+         B     L30                                                                                 1 00000024 47F0C030     RXb       
+
+L28      DC    F'76'                                                                               0 00000028 0000004C
+
+L2C      DC    F'18'                                                                               0 0000002C 00000012
+
+L30      L     R0,L28                  Load (32)                                                   1 00000030 5800C028     RXa     4 (,F)
+         L     R15,L2C                 Load (32)                                                   1 00000034 58F0C02C     RXa     4 (,F)
+         L     R14,16                  Load (32) -> CVT                                            1 00000038 58E00010     RXa     4 (,F)
+         L     R14,X'304'(R14)         Load (32)                                                   1 0000003C 58EE0304     RXa     4 (,F)
+         L     R14,X'0A0'(R14)         Load (32)                                                   1 00000040 58EE00A0     RXa     4 (,F)
+         PC    0(R14)                  Program Call                                                1 00000044 B218E000     S         
+
+         LTR   R15,R15                 Load and Test (32)                                          1 00000048 12FF         RR        
+         JNZ   L122                    Branch if Not Zero                                          1 0000004A A774006C     RIc       
+         ST    R13,4(,R1)              Store (32)                                                  1 0000004E 50D01004     RXa     4 (,F)
+         ST    R1,8(,R13)              Store (32)                                                  1 00000052 5010D008     RXa     4 (,F)
+         LR    R13,R1                  Load (32)                                                   1 00000056 18D1         RR        
+         USING WA,R13
+*        ------------
+         LTR   R4,R4                   Load and Test (32)                                          1 00000058 1244         RR        
+         JZ    L114                    Branch if Zero                                              1 0000005A A784005D     RIc       
+         TM    PLIST_8,B'10000000'     Test under Mask (8)                                         1 0000005E 91804008     SI0       
+         JNO   L114                    Branch if Not Ones                                          1 00000062 A7E40059     RIc       
+         LA    R8,WA_48                Load Address                                                1 00000066 4180D048     RXa       
+         LA    R1,L130                 Load Address                                                1 0000006A 4110C130     RXa       
+         ST    R8,0(R1)                Store (32)                                                  1 0000006E 50810000     RXa     4 (,F)
+         MVI   8(R1),1                 Move Immediate (8)                                          1 00000072 92011008     SI      1 
+         MVI   9(R1),0                 Move Immediate (8)                                          1 00000076 92001009     SI      1 
+         SVC   40                      EXTRACT                                                     1 0000007A 0A28         I         
+
+         L     R8,WA_48                Load (32)                                                   1 0000007C 5880D048     RXa     4 (,F)
+         L     R7,0(,R8)               Load (32)                                                   1 00000080 58708000     RXa     4 (,F)
+         L     R1,PLIST_8              Load (32)                                                   1 00000084 58104008     RXa     4 (,F)
+         ST    R7,0(,R1)               Store (32)                                                  1 00000088 50701000     RXa     4 (,F)
+         L     R7,PLIST_0              Load (32)                                                   1 0000008C 58704000     RXa     4 (,F)
+         MVI   0(R7),0                 Move Immediate (8)                                          1 00000090 92007000     SI      1 
+         L     R7,PLIST_4              Load (32)                                                   1 00000094 58704004     RXa     4 (,F)
+         XC    0(256,R7),0(R7)         Exclusive-Or Character                                      1 00000098 D7FF70007000 SSa   256 (,X)
+         L     R7,4(,R8)               Load (32)                                                   1 0000009E 58708004     RXa     4 (,F)
+         LTR   R7,R7                   Load and Test (32)                                          1 000000A2 1277         RR        
+         JZ    L102                    Branch if Zero                                              1 000000A4 A784002F     RIc       
+         L     R9,PLIST_0              Load (32)                                                   1 000000A8 58904000     RXa     4 (,F)
+         CLI   4(R7),X'44'             Compare Logical Immediate (8)                               1 000000AC 95447004     SI      1 
+         JNE   LBC                     Branch if Not Equal                                         1 000000B0 A7740006     RIc       
+         MVI   0(R9),C'F'              Move Immediate (8)                                          1 000000B4 92C69000     SI      1 
+         J     LDC                                                                                 1 000000B8 A7F40012     RIc       
+
+LBC      CLI   4(R7),C' '              Compare Logical Immediate (8)                               1 000000BC 95407004     SI      1 
+         JNE   LCC                     Branch if Not Equal                                         1 000000C0 A7740006     RIc       
+         MVI   0(R9),C'P'              Move Immediate (8)                                          1 000000C4 92D79000     SI      1 
+         J     LDC                                                                                 1 000000C8 A7F4000A     RIc       
+
+LCC      CLI   4(R7),4                 Compare Logical Immediate (8)                               1 000000CC 95047004     SI      1 
+         JNE   LFA                     Branch if Not Equal                                         1 000000D0 A7740015     RIc       
+         MVI   0(R9),C'S'              Move Immediate (8)                                          1 000000D4 92E29000     SI      1 
+         J     LDC                                                                                 1 000000D8 A7F40002     RIc       
+
+LDC      LH    R5,14(,R7)              Load Halfword (32<-16)                                      1 000000DC 4850700E     RXa     2 (,H)
+         BCTR  R5,R0                   Branch on Count                                             1 000000E0 0650         RR        
+         LTR   R5,R5                   Load and Test (32)                                          1 000000E2 1255         RR        
+         JM    LFA                     Branch if Minus                                             1 000000E4 A744000B     RIc       
+         L     R9,PLIST_4              Load (32)                                                   1 000000E8 58904004     RXa     4 (,F)
+
+LEC      MVC   0(1,R9),16(R7)          Move Character                                              1 000000EC D20090007010 SSa     1 
+         EX    R5,LEC                  Execute MVC 0(1,R9),16(R7)                                  1 000000F2 4450C0EC     RXa       
+         J     LFA                                                                                 1 000000F6 A7F40002     RIc       
+
+LFA      LNR   R1,R7                   Load Negative (32)                                          1 000000FA 1117         RR        
+         LA    R0,4(,R8)               Load Address                                                1 000000FC 41008004     RXa       
+         SVC   34                      MGCR/MGCRE/QEDIT                                            1 00000100 0A22         I         
+
+L102     LA    R1,5                    Load Address                                                1 00000102 41100005     RXa       
+         LNR   R1,R1                   Load Negative (32)                                          1 00000106 1111         RR        
+         LA    R0,4(,R8)               Load Address                                                1 00000108 41008004     RXa       
+         LNR   R0,R0                   Load Negative (32)                                          1 0000010C 1100         RR        
+         SVC   34                      MGCR/MGCRE/QEDIT                                            1 0000010E 0A22         I         
+
+         J     L11C                                                                                1 00000110 A7F40006     RIc       
+
+L114     LA    R15,12                  Load Address                                                1 00000114 41F0000C     RXa       
+         J     L11E                                                                                1 00000118 A7F40003     RIc       
+
+L11C     SLR   R15,R15                 Subtract Logical (32)                                       1 0000011C 1FFF         RR        
+
+L11E     L     R13,WA_4                Load (32)                                                   1 0000011E 58D0D004     RXa     4 (,F)
+
+L122     L     R14,WA_C                Load (32)                                                   1 00000122 58E0D00C     RXa     4 (,F)
+         LM    R0,R12,WA_14            Load Multiple (32)                                          1 00000126 980CD014     RSA    52 (,F)
+         BR    R14                                                                                 1 0000012A 07FE         RRm       
+
+*---------------------------------------------------------------------*
+*                                                                      
+*---------------------------------------------------------------------*
+
+         DC    F'0'                    X'00000000'                                                 0 0000012C 00000000
+
+L130     DC    XL12'000000000000000000000000'                                                      0 00000130 
+
+***********************************************************************
+*                                                                     *
+*                          R E G I S T E R S                          *
+*                                                                     *
+***********************************************************************
+
+*---------------------------------------------------------------------*
+* General purpose register equates                                     
+*---------------------------------------------------------------------*
+
+R0       EQU   0
+R1       EQU   1
+R2       EQU   2
+R3       EQU   3
+R4       EQU   4
+R5       EQU   5
+R6       EQU   6
+R7       EQU   7
+R8       EQU   8
+R9       EQU   9
+R10      EQU   10
+R11      EQU   11
+R12      EQU   12
+R13      EQU   13
+R14      EQU   14
+R15      EQU   15
+
+***********************************************************************
+*                                                                     *
+*                             D S E C T S                             *
+*                                                                     *
+***********************************************************************
+
+*---------------------------------------------------------------------*
+* Parameter List                                                       
+*---------------------------------------------------------------------*
+
+PLIST    DSECT                                                         
+PLIST_0  DS    F                                                       
+PLIST_4  DS    F                                                       
+PLIST_8  DS    F                                                       
+
+*---------------------------------------------------------------------*
+* Work Area                                                            
+*---------------------------------------------------------------------*
+
+WA       DSECT                                                         
+         DS    XL4                                                     
+WA_4     DS    F                                                       
+         DS    XL4                                                     
+WA_C     DS    F                                                       
+         DS    XL4                                                     
+WA_14    DS    13F                                                     
+WA_48    DS    F                                                       
+         END
+```
 
 ## SYNTAX
 
-* When invoked from TSO to create an AMBLIST job:
+### DA (z/OS only)
+On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
 
-   `TSO DA [dsn]`
+`DA [dsn | hex] [(options...]`
 
-   Where,
 
-   * `dsn` - Identifies the load module to be printed using AMBLIST. The
-            dataset name must be fully qualified, without quotation marks, and
-            include the module name in parentheses.
+* When DA is invoked from TSO it creates an AMBLIST job to print the specified load module:
 
-    For example:
+    `TSO DA [dsn]`
+    
+    Where,
 
-    `TSO DA SYS1.LPALIB(IEFBR14)`
+    * `dsn` - Identifies the load module to be printed using AMBLIST. The
+                dataset name must be fully qualified, without quotation marks, and
+                include the module name in parentheses. The default dsn is SYS1.LPALIB(IEFBR14).
 
-* When invoked from ISPF/EDIT to disassemble AMBLIST output:
+        For example:
 
-   `DA [hex] [(options...]`
+        `TSO DA SYS1.LPALIB(IEFBR14)`
 
-   Where,
+* When DA is invoked in an ISPF/EDIT session it disassembles AMBLIST output being edited:
 
-   * `hex` - Optional hex to be disassembled directly from the command line.
-   
-   * `options` are:
+    `DA [hex] [(options...]`
 
-     `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the end of the generated source file.
+    Where,
 
-     `TEST`    - Generate a source file containing one instance of every instruction to exercise the assembler. When assembled into a module, the
-     result can be used to test the disassembler.
+    * `hex` - Optional hex to be disassembled directly from the command line.
+    * `options` are specified after a single left parenthesis:
 
-     `ASM`     - Generate JCL to assemble the file being edited.
+        `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the generated source file.
+
+        `TEST`    - Generate a source file containing one instance of every instruction. When assembled into a module, the
+                    result can be used to test the disassembler.
+
+        `ASM`     - Generate JCL to assemble the file being edited.
+
+### DAB (z/OS, Linux or Windows)
+On z/OS (TSO or batch), Linux or Windows you can use the DAB exec. The syntax is:
+
+`DAB [[filein | hex] [fileout]] [--options...]`
+
+
+Where,
+
+* `filein` - Identifies the input file to be disassembled. For z/OS it must be either a fully qualified dataset name (for example, `sys1.my.pds(mymem)`) or a DD name (for example, `DD:mydd`).
+* `hex` - Hex to be disassembled directly from the command line. For example, `DAB 90ECD00C07FE`.
+* `fileout` - Identifies the disassembled output file to be created. The default is the path and file name of the input file with a `.asm` extension appended.
+* `options` are specified after a double-dash:
+
+    `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the generated source file.
+
+    `TEST`    - Generate a source file called `test.asm` containing one instance of every instruction. 
+                When assembled into a module, the result can be used to test the disassembler.
+
+    `ASM`     - Wrap the disassembled output in JCL to assemble the source
+
+    `AMBLIST` - Generate JCL in `fileout` to print the module identified by `filein`.
+
+
+    Note that when an instruction refers to a storage location that does not currently have a label assigned to it we have an unresolved storage reference. Any unresolved storage references will be written to a file called `[filein].tags` so that they will be automatically resolved the next time you run DAB. These tags files can be deleted at any time because they will be recreated when needed.
 
 ## NOTES
 
 1. As new instructions are added to the z/Series instruction set, it will be necessary to define them in
-    the comments of the DA rexx procedure marked by BEGIN-xxx and END-xxx
+    the comments of the DA and DAB REXX procedures marked by BEGIN-xxx and END-xxx
     comments. Otherwise the new instructions will be
     treated as data.
+
+1. To run DAB on Linux or windows, you will need to install a REXX interpreter such as:
+    1. Regina REXX      (http://regina-rexx.sourceforge.net)
+    1. Open Object REXX (http://www.oorexx.org/)
+    
+    On Linux, there is usually a REXX package that you can install using your package manager, for example:
+    ```
+    sudo apt install regina-rexx
+    ```
+   
+    The interpreter can then be invoked in a command window by issuing, for example:
+    ```
+    rexx dab.rex input.hex output.asm
+    ```
 
 ## USAGE
 
@@ -320,7 +601,7 @@ immediately before the hex to which they apply:
 
 
 * ## ("*comment*")
-  Inserts a comment into the generated source file with the format:
+  Inserts a section comment into the generated source file with the format:
 
     ```
     ************************************************************************
@@ -450,14 +731,12 @@ immediately before the hex to which they apply:
     By using the `=variable_name` and `:length_expression` syntax, you can parse variable
     length data. 
     
-    When `=variable_name` is specified, a rexx variable is created called `$variable_name` -
-    to avoid clashes with variables already used by the DA Rexx procedure - 
+    When `=variable_name` is specified, a REXX variable is created called `$variable_name` 
     containing the contents of the associated field converted to decimal.
     
-    When `length_expression` is specified, the expression can be any simple Rexx 
+    When `length_expression` is specified, the expression can be any simple REXX 
     expression that results in a positive whole number. The expression must not contain
-    parentheses. You should use variable names you created prefixed with a `$` sign, 
-    else the result will be unpredictable.
+    parentheses. You should use variable names you created (using `=variable_name`) prefixed with a `$` sign, else the result will be unpredictable.
     
     For example, the following table entries contain string length fields which are
     one less than the actual length of each string:
@@ -616,7 +895,7 @@ immediately before the hex to which they apply:
     ```
     For example:
     ```
-    18D1 (R13=>WA) 4110D004 4120D010 5020D008
+    18D1 (R13=>WA 'Work Area') 4110D004 4120D010 5020D008
     ```
     The above would be disassembled as:
     ```
@@ -627,6 +906,12 @@ immediately before the hex to which they apply:
             LA     R2,WA_10
             ST     R2,WA_8
 
+    ************************************************************************
+    *                                                                      *
+    *                            Work Area                                 *
+    *                                                                      *
+    ************************************************************************
+    
     WA      DSECT
             DS     XL4
     WA_4    DS     0X
@@ -731,3 +1016,8 @@ immediately before the hex to which they apply:
     Assigns an automatically named assembler label and
     data type *t* to location *xxx* in hexadecimal. The
     type can be any of those described above for the (t) tag.
+
+    If any unresolved storage references are detected during
+    disassembly, they will be written to a `.tags` file which will be 
+    loaded on subsequent runs so that they are automatically accounted 
+    for. You can delete this file at any time.

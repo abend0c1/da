@@ -1,0 +1,109 @@
+1                                  *****  M O D U L E   S U M M A R Y  *****
+0    MEMBER NAME:  GETCMD                                                                 MAIN ENTRY POINT:    00000000
+0    LIBRARY:      SYSLIB                                                                 AMODE OF MAIN ENTRY POINT: 31
+0        NO ALIASES **
+-------------------------------------------------------------------------------------------------------------------------
+0                       ****          ATTRIBUTES OF MODULE           ****
+0                **   BIT  STATUS         BIT  STATUS         BIT  STATUS         BIT  STATUS   **
+0                      0  NOT-RENT         1  NOT-REUS         2  NOT-OVLY         3  NOT-TEST
+                       4  NOT-OL           5  BLOCK            6  EXEC             7  MULTI-RCD
+                       8  NOT-DC           9  ZERO-ORG         10 RESERVED         11 NO-RLD
+                       12 EDIT             13 NO-SYMS          14 RESERVED         15 NOT-REFR
+                       16 RESERVED         17 <16M             18 NOT-PL           19 NO-SSI
+                       20 APF              21 PGM OBJ          22 NOT-SIGN         23 RESERVED
+                       24 NOT-ALTP         25 RESERVED         26 NORMODE64        27 RMODEANY
+                       28 RESERVED         29 RESERVED         30 RESERVED         31 RESERVED
+                       32 MIGRATE          33 NO-PRIME         34 NO-PACK          35 RESERVED
+                       36 RESERVED         37 RESERVED         38 RESERVED         39 RESERVED
+0------------------------------------------------------------------------------------------------------------------------
+-                                    MODULE SSI:        NONE
+                                     APFCODE:           00000000
+                                     RMODE:             ANY
+                                     LONGPARM:          NO
+                                     PO FORMAT:         2
+                                     XPLINK:            NO
+0                   *****PROGRAM OBJECT PROCESSED BY BINDER
+ ***THE FOLLOWING ARE THE UNFORMATTED PDSE DIRECTORY ENTRY SECTIONS (PMAR AND PMARL)
+ PMAR  001E0209 02D00C12 00000000 01400000   00000000 00000000 00000000 0000
+ PMARL 005200C0 00000000 00010000 013C0000   01E00000 03C40000 04740000 00140000
+       013C0000 00200000 011C0000 00010000   01500001 00000000 10000000 00000000
+       00002020 295F0165 543FE4F7 F0F3F4F0   F4C1
+1                                          LISTING OF PROGRAM OBJECT GETCMD                                 PAGE      1
+
+0THIS PROGRAM OBJECT WAS ORIGINALLY PRODUCED BY 5695PMB01 AT LEVEL 02.03 ON 10/21/2020 AT 16:55:43
+0------------------------------------------------------------------------------------------------------------------------
+0           MODULE SECTION:   $MODULE
+0USABILITY: UNSPECIFIED    AMODE: UNS   OVERLAY SEGMENT:    0   OVERLAY REGION:   0
+ ===== MAP  =====            CLASS:            B_MAP
+000000000  00000140 D4000000 FFFFFFFF 00000000 0000013C 00000000 00000000 00000000   *....M...........................*
+ 00000020  00000080 C3000006 00000021 00000000 0000013C 6A000001 00000000 00000000   *....C...........................*
+ 00000040  00000000 E2800006 0000001B 00000000 0000013C 64000001 00000000 00000000   *....S...........................*
+ 00000060  00000000 D3000006 00000015 00000000 00000000 01000001 00000000 00000000   *....L...........................*
+ 00000080  000000C0 C3600005 00000010 00000000 00000003 6A000048 00000000 00000000   *....C...........................*
+ 000000A0  00000000 E2800006 0000001B 00000000 00000003 64000048 00000000 00000000   *....S...........................*
+ 000000C0  00000100 C3600006 0000000A 00000000 00000001 6A000015 00000000 00000000   *....C...........................*
+ 000000E0  00000000 E2800006 0000001B 00000000 00000001 64000015 00000000 00000000   *....S...........................*
+ 00000100  00000000 C3600006 00000004 00000000 00000001 6A00006A 00000000 00000000   *....C...........................*
+ 00000120  00000000 E2800004 00000000 00000000 00000001 6400006A 00000000 00000000   *....S...........................*
+ 00000140  00000000 C5000000 FFFFFFFF 00000000 00000000 00000000 00000000 00000000   *....E...........................*
+ ===== MAP  =====            CLASS:            B_MAP
+000000000  00000001 C26DC9C4 D9C2C26D C9C4D9D3 C26DC5E2 C4C7C5E3 C3D4C4C7 C5E3C3D4   *....B.IDRBB.IDRLB.ESDGETCMDGETCM*
+ 00000020  C4C26DE3 C5E7E3                                                           *DB.TEXT.........................*
+0------------------------------------------------------------------------------------------------------------------------
+0           CONTROL SECTION:  GETCMD
+0USABILITY: UNSPECIFIED    AMODE:  31   OVERLAY SEGMENT:    0   OVERLAY REGION:   0
+ ===== IDRL =====
+0          TRANSLATOR   VER   MOD     DATE        TIME
+0          569623400     01    06    10/21/2020
+ ===== ESDs =====
+0B_TEXT(ED)
+     CLASS:           B_TEXT      LENGTH:         13C (HEX)       CLASS OFFSET:           0 (HEX)       FORMAT:  F(0001)
+     NAME SPACE:           1      ALIGNMENT:    DOUBLE WORD       BIND METHOD:           CATENATE       RMODE:       ANY
+     TEXT                         LOAD                            FILL:                    UNSPEC
+ GETCMD(LD)
+     CLASS:           B_TEXT      TEXT TYPE:         UNSPEC       CLASS OFFSET:           0 (HEX)
+     NAME SPACE:           1      SCOPE:             MODULE       ELEMENT OFFSET:         0 (HEX)       AMODE:        31
+     ATTRIBUTES:     GENERATED,STRONG
+ ===== TEXT =====            CLASS:           B_TEXT
+000000000  A7F4000E.C7C5E3C3 D4C44040 F2F0F2F0 61F1F061 F2F140F1 F67AF5F5,90ECD00C   *x4..GETCMD..2020.10.21.16.55....*
+ 00000020  18CF(R12=0)1841 (R4=>PLIST 'Parameter List')47F0C030 (F)0000004C 00000012,5800C028 58F0C02C 58E00010 58EE0304   *.....0...............0..........*
+ 00000040  58EE00A0 B218E000 12FFA774 006C50D0 10045010 D00818D1 (R13=>WA 'Work Area')1244A784 005D9180   *..........x............J..xd..j.*
+ 00000060  4008A7E4 00594180 D0484110 C1305081 00009201 10089200 10090A28 5880D048   *..xU........A..a..k...k.........*
+ 00000080  58708000 58104008 50701000 58704000 92007000 58704004 D7FF7000 70005870   *................k.......P.......*
+ 000000A0  80041277 A784002F 58904000 95447004 A7740006 92C69000 A7F40012 95407004   *....xd......n...x...kF..x4..n...*
+ 000000C0  A7740006 92D79000 A7F4000A 95047004 A7740015 92E29000 A7F40002 4850700E   *x...kP..x4..n...x...kS..x4......*
+1                                          LISTING OF PROGRAM OBJECT GETCMD                                 PAGE      2
+
+0           CONTROL SECTION:  GETCMD
+ ===== TEXT =====            CLASS:           B_TEXT
+0000000E0  06501255 A744000B 58904004 D2009000 70104450 C0ECA7F4 00021117 41008004   *....x.......K.........x4........*
+ 00000100  0A224110 00051111 41008004 11000A22 A7F40006 41F0000C A7F40003 1FFF58D0   *................x4...0..x4......*
+ 00000120  D00458E0 D00C980C D01407FE ('').00000000 00000000 00000000 00000000            *......q.........................*
+0**   END OF PROGRAM OBJECT LISTING
+1                             ** SEGMENT MAP TABLE **                                                       PAGE      3
+
+0CLASS             SEGMENT    OFFSET   LENGTH       LOAD      TYPE    ALIGNMENT    RMODE
+0B_TEXT                  1         0      13C       INITIAL   CAT     DOUBLE WORD  31
+1                             ** NUMERICAL MAP OF PROGRAM OBJECT GETCMD           **                        PAGE      4
+
+0------------------------------------------------------------------------------------------------------------------------
+0RESIDENT CLASS:           B_TEXT
+0      CLAS LOC   ELEM LOC    LENGTH  TYPE  RMODE    ALIGNMENT             NAME
+0        0                       13C   ED      31    DOUBLE WORD           GETCMD
+0      CLASS LENGTH              13C
+0------------------------------------------------------------------------------------------------------------------------
+      ****  NO ADCONS IN THIS CLASS  ****
+0      CLASS LENGTH              13C
+0LENGTH OF PROGRAM OBJECT      140
+0------------------------------------------------------------------------------------------------------------------------
+1                             ** ALPHABETICAL MAP OF PROGRAM OBJECT GETCMD           **                     PAGE      5
+
+0ENTRY NAME  CLAS LOC  ELEM LEN/LOC  RMODE      CLASS NAME       SECTION NAME OR ENTRY TYPE
+0GETCMD
+                   0        13C         31          B_TEXT       (ED)
+0------------------------------------------------------------------------------------------------------------------------
+1                             ** ALPHABETICAL CROSS-REFERENCE LIST OF PROGRAM OBJECT GETCMD           **    PAGE      6
+
+0     ****  NO RLD DATA ****
+0LENGTH OF PROGRAM OBJECT      140
+0**   END OF MAP AND CROSS-REFERENCE LISTING
