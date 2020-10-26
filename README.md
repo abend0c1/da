@@ -447,14 +447,16 @@ On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
 ### DAB (z/OS, Linux or Windows)
 On z/OS (TSO or batch), Linux or Windows you can use the DAB exec. The syntax is:
 
-`DAB [[filein | hex] [fileout]] [--options...]`
+`DAB [[filein | hex] [fileout | -]] [--options...]`
 
 
 Where,
 
 * `filein` - Identifies the input file to be disassembled. For z/OS it must be either a fully qualified dataset name (for example, `sys1.my.pds(mymem)`) or a DD name (for example, `DD:mydd`).
 * `hex` - Hex to be disassembled directly from the command line. For example, `DAB 90ECD00C07FE`.
-* `fileout` - Identifies the disassembled output file to be created. The default is the path and file name of the input file with a `.asm` extension appended.
+* `fileout` - Identifies the disassembled output file to be created. 
+              The default is the path and file name of the input file with a `.asm` extension appended.
+              If `-` is specified then the output is written to the console.
 * `options` are specified after a double-dash:
 
     `STAT`    - Generate instruction format and mnemonic usage statistics and append them as comments to the generated source file.

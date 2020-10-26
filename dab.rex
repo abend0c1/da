@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Author:
-Andrew J. Armstrong <androidarmstrong@gmail.com> 
+Andrew J. Armstrong <androidarmstrong@gmail.com>
 */
 /*REXX*****************************************************************
 **                                                                   **
@@ -409,8 +409,8 @@ BEGIN-JCL-COMMENTS
 **                                                                   **
 **              If you specify an unsupported data type then the     **
 **              default format of X is used. As a happy side effect, **
-**              specifying "3 3 3 3" or even just "4x3" (which you   ** 
-**              could read as "four by three bytes") is equivalent   ** 
+**              specifying "3 3 3 3" or even just "4x3" (which you   **
+**              could read as "four by three bytes") is equivalent   **
 **              to "4XL3" or "XL3 XL3 XL3 XL3". If you specify       **
 **              just a number then that number is treated as the     **
 **              length of a type X field (e.g. "3" is the same as    **
@@ -652,19 +652,20 @@ END-JCL-COMMENTS
 **                                                                   **
 **********************************************************************/
 trace o
+  parse arg sCmdLine
   signal on syntax name onSyntax
   numeric digits 22
   call prolog
 
   select
-    when g.0ZOS then do 
+    when g.0ZOS then do
       parse arg sCmdLine ' ('sOptions
       sCmdLine = strip(sCmdLine)
       xData = space(sCmdLine,0)
-      if isHex(xData) 
+      if isHex(xData)
       then do /* Hex is supplied on the command line */
         sFileIn = ''
-        sFileOut = 'DAB.ASM' 
+        sFileOut = 'DAB.ASM'
         sFileTags = 'DAB.TAGS'
       end
       else do /* Parse z/OS partitioned dataset name and member */
@@ -675,50 +676,10 @@ trace o
         parse var sFileOut sDsnOut'('sMemOut')'
       end
     end
-    when g.0NIX then do 
-      parse arg sCmdLine '--' sOptions
-      xData = space(sCmdLine,0)
-      if isHex(xData) 
-      then do /* Hex is supplied on the command line */
-        sFileIn = ''
-        sFileOut = 'dab.asm'
-        sFileTags = 'dab.tags'
-      end
-      else do /* Unix filenames (slash path separators) */
-        parse var sCmdLine sFileIn sFileOut .
-        parse value split(sFileIn, '/', '.'),
-              with sPathIn 'ff'x sFileNameIn 'ff'x sExtIn
-        parse value split(sFileOut, '/', '.'),
-              with sPathOut 'ff'x sFileNameOut 'ff'x sExtOut
-        if sPathOut = '' then sPathOut = sPathIn
-        if sFileNameOut = '' then sFileNameOut = sFileNameIn
-        if sExtOut = '' then sExtOut = '.asm'
-        sFileOut = sPathOut || sFileNameOut || sExtOut
-        sFileTags = sPathOut || sFileNameOut || '.tags'
-      end
-    end
-    when g.0WIN then do 
-      parse arg sCmdLine '--' sOptions
-      xData = space(sCmdLine,0)
-      if isHex(xData) 
-      then do /* Hex is supplied on the command line */
-        sFileIn = ''
-        sFileOut = 'DAB.asm'
-      end
-      else do /* Windows filenames (reversed virgule path separators) */
-        parse var sCmdLine sFileIn sFileOut .
-        parse value split(sFileIn, '\', '.'),
-              with sPathIn 'ff'x sFileNameIn 'ff'x sExtIn
-        parse value split(sFileOut, '\', '.'),
-              with sPathOut 'ff'x sFileNameOut 'ff'x sExtOut
-        if sPathOut = '' then sPathOut = sPathIn
-        if sFileNameOut = '' then sFileNameOut = sFileNameIn
-        if sExtOut = '' then sExtOut = '.asm'
-        sFileTags = sPathOut || sFileNameOut || '.tags'
-      end
-    end
+    when g.0NIX then call parseCmdLine sCmdLine,'/'
+    when g.0WIN then call parseCmdLine sCmdLine,'\'
     otherwise do
-      say 'Unsupported environment:' t1
+      say 'DIS0016E Unsupported environment:' t1
       exit 4
     end
   end
@@ -752,8 +713,9 @@ trace o
 
   sTags = ''
   hTag = openFile(sFileTags)
-  if g.0RC = 0 
+  if g.0RC = 0
   then do
+    say 'DIS0017I Reading storage references from file:' sFileTags
     sTag = getLine(hTag)
     do while g.0RC = 0
       sTags = sTags sTag
@@ -776,6 +738,7 @@ trace o
       address TSO 'EXECIO * DISKR' sDD '(FINIS STEM i.'
     end
     else do
+      say 'DIS0017I Reading hex from file:' sFileIn
       hIn = openFile(sFileIn)
       do i = 1 while g.0RC = 0
         i.i = getLine(hIn)
@@ -971,11 +934,42 @@ trace o
   if nUndefinedLabels > 0
   then say 'DIS0011W There are' nUndefinedLabels 'references to undefined',
            'labels (see end of listing)'
+
+  call epilog
   if g.0NEWDOTS > 0
   then say 'DIS0013I Rerun DAB to process' g.0NEWDOTS 'new references'
   else say 'DIS0014I DAB processing complete'
 
-  call epilog
+return
+
+parseCmdLine:
+  parse arg sFileIn sFileOut '--' sOptions,sPathSep
+  if isHex(sFileIn)
+  then do /* Hex is supplied on the command line */
+    xData = sFileIn
+    sFileIn = ''
+    if sFileOut = '' then sFileOut = 'dab.asm'
+    sFileTags = 'dab.tags'
+  end
+  else do /* Unix filenames (slash path separators) */
+    parse value split(sFileIn, '/', '.'),
+          with sPathIn 'ff'x sFileNameIn 'ff'x sExtIn
+    if sFileOut = '-'
+    then do
+      sPathout = ''
+      sFileNameOut = '-'
+      sExtOut = ''
+    end
+    else do
+      parse value split(sFileOut, '/', '.'),
+            with sPathOut 'ff'x sFileNameOut 'ff'x sExtOut
+      if sPathOut = '' then sPathOut = sPathIn
+      if sFileNameOut = '' then sFileNameOut = sFileNameIn
+      if sExtOut = '' then sExtOut = '.asm'
+      sFileOut = sPathOut || sFileNameOut || sExtOut
+    end
+    sFileTags = sPathOut || sFileNameIn || '.tags'
+  end
 return
 
 saveStatistics: procedure expose g.
@@ -1069,7 +1063,7 @@ return 0
 split: procedure
   parse arg sFile,sPathSep,sExtSep
   nPathSep = lastpos(sPathSep,sFile)
-  if nPathSep = 0 
+  if nPathSep = 0
   then do
     sPath = ''
     sRest = sFile
@@ -1079,7 +1073,7 @@ split: procedure
     sRest = substr(sFile,nPathSep+1)
   end
   nExtSep = lastpos(sExtSep,sRest)
-  if nExtSep = 0 
+  if nExtSep = 0
   then do
     sFileName = sRest
     sExt = ''
@@ -1088,7 +1082,7 @@ split: procedure
     sFileName = substr(sRest,1,nExtSep-1)
     sExt = substr(sRest,nExtSep)
   end
-return sPath || 'ff'x || sFilename || 'ff'x || sExt  
+return sPath || 'ff'x || sFilename || 'ff'x || sExt
 
 onSyntax:
   sSourceLine = strip(sourceline(sigl))
@@ -1287,7 +1281,7 @@ readRawHex: procedure expose g. i.
   end
 return xData
 
-seek: procedure expose g. i. 
+seek: procedure expose g. i.
   parse arg sString,nFromRow,nToRow
   if \datatype(nFromRow,'WHOLE') then nFromRow = g.0ROW
   if \datatype(nToRow,'WHOLE') then nToRow = i.0
@@ -1372,12 +1366,12 @@ generateTestBed: procedure expose g.
     end
   end
   call emit '         END'
-  call emitFile 'test.asm'
+  call emitFile 'test.asm','instruction test suite'
 return
 
 emitAsm: procedure expose g.
   sUserid = translate(userid())
-  sJob = left(sUserid()'A',8)
+  sJob = left(sUserid||'A',8)
   call emit '//'sJob   "JOB ,'ASM',CLASS=U,MSGCLASS=T,NOTIFY=&SYSUID"
   call emit '//ASM     EXEC PGM=ASMA90,'
   call emit "//             PARM=('NOOBJECT,NODECK,LINECOUNT(0)')"
@@ -1454,7 +1448,7 @@ handleTag: procedure expose g.
   parse arg sTag1 +1 0 sTag
   sTag = translate(sTag,' ',g.0HARDBLANK) /* Soften hard blanks */
   if sTag1 = 'R'                       /* If it is a register tag       */
-  then do 
+  then do
     parse var sTag 'R'nn'='sLabel
     sRegisters = getRegisterList('R'nn) /* Will be null if no registers */
     nRegisters = words(sRegisters)
@@ -1504,7 +1498,7 @@ handleTag: procedure expose g.
         2x3     2 x data type X (default) of length 3 (when x is invalid type)
         AL1=n   Parse 1 byte and assign it to variable $n
         CL$n+1  Parse $n+1 bytes of data type C
-*/        
+*/
         nRep = ''
         sTyp = ''
         nLen = ''
@@ -1603,7 +1597,7 @@ handleTag: procedure expose g.
           end
           call attachDirective g.0XLOC,'DROP  'substr(sDrop,2),1
         end
-        otherwise do                   /* (Rnn[+Rnn...]=label)     
+        otherwise do                   /* (Rnn[+Rnn...]=label)
                                        or (Rnn[+Rnn...]=offset)
                                        or (Rnn[+Rnn...]=Rnn)       */
           /* USING label,Rnn[,Rmm...] */
@@ -2157,7 +2151,7 @@ doAddress: procedure expose g.
         sLoc = bitand(sLoc,'7FFFFFFF'x)
         xLoc = stripx(c2x(sLoc)) /* Remove leading zeros */
         sLabel = refLabel(getLabel(xLoc),xLoc)
-        if b31 
+        if b31
         then sLabel = sLabel"+X'80000000'"
         call saveStmt 'DC',a(sLabel),x(xField),g.0XLOC8 xField
       end
@@ -2755,7 +2749,7 @@ return f(xData)
 doBinary: procedure expose g.
   parse arg sData
   if isFullwordBoundary()     /* Scan for address constants */
-  then do while length(sData) > 0       
+  then do while length(sData) > 0
     parse var sData s.1 +4 s.2 +4 s.3 +4 s.4 +4 sData /* Four words at a time */
     sBin = ''
     do i = 1 to 4 while length(s.i) > 0 /* For each fullword... */
@@ -2924,7 +2918,7 @@ decodeInst: procedure expose g.
 /*
    Opcodes can only come from certain places in an instruction:
    Instruction   Type (for the purposes of this disassembler)
-   ------------  ---- 
+   ------------  ----
    aa..........   1
    bbbb........   2
    cc.c........   3
@@ -3001,7 +2995,7 @@ decodeInst: procedure expose g.
       g.0DIAG = 1                     /* Insert a DIAG macro (for z/OS) */
                /* ...because HLASM does not support a DIAGNOSE mnemonic */
       call saveStmt sMnemonic,sOperands,sDesc,sOverlay
-    end      
+    end
     when sMnemonic = 'L' & X2=0 & B2=0 & D2 = '010' then do
       sDesc = sDesc '-> CVT'
       call saveStmt sMnemonic,sOperands,sDesc,sOverlay
@@ -3064,12 +3058,12 @@ decodeInst: procedure expose g.
       sExt = g.0EXTC.M3 /* Convert mask to extended mnemonic suffix     */
       if sExt <> ''    /* If an extended mnemonic exists for this inst  */
       then do          /* Then rebuild operands without the M3 mask     */
-        if sFormat = 'RIEc'  
+        if sFormat = 'RIEc'
         then o = r(R1) u(I2) sTarget
         else o = r(R1) r(R2) sTarget
       end
       else do
-        if sFormat = 'RIEc'  
+        if sFormat = 'RIEc'
         then o = r(R1) u(I2) m(M3) sTarget
         else o = r(R1) r(R2) m(M3) sTarget
       end
@@ -3336,7 +3330,7 @@ t: procedure expose g. /* Operand length hint */
         if g.0CLENG.xTarget = ''
         then g.0CLENG.xTarget = nLength
         else g.0CLENG.xTarget = max(g.0CLENG.xTarget,nLength)
-        if g.0CTYPE.xTarget = '' 
+        if g.0CTYPE.xTarget = ''
         then g.0CTYPE.xTarget = sType
         call refLabel ,xTarget
       end
@@ -3458,7 +3452,7 @@ getLabelRel: procedure expose g.
   if nTarget < 0 then nTarget = 0
   xTarget = d2x(nTarget)
   sLabel = refLabel(label(xTarget),xTarget)
-return sLabel  
+return sLabel
 
 getLabel: procedure expose g.    /* Label name for this hex location */
   arg xLoc
@@ -3792,7 +3786,7 @@ prolog:
                'E0'x                   ||, /* \          */
                'E2E3E4E5E6E7E8E9'x     ||, /* STUVWXYZ   */
                'F0F1F2F3F4F5F6F7F8F9'x     /* 0123456789 */
-  
+
   /* The above EBCDIC characters translated to ASCII */
   g.0ASCII   = '20'x                   ||, /*            */
                'A22E3C282B7C26'x       ||, /* ¢.<(+|&    */
@@ -3855,27 +3849,36 @@ buildJob: procedure expose g.
     parse var sLine 4 sComment +66 .
     queue '//*' sComment
   end
-  call emitFile 'amblist.jcl'
+  call emitFile 'amblist.jcl','AMBLIST job control'
 return
 
 emitFile: procedure expose g.
-  parse arg sFile
-  if g.0ZOS & isDDName(sFile) /* DD:ddname */
-  then do
-    parse var sFile 'DD:'sDD .
-    address TSO 'EXECIO * DISKW' sDD '(FINIS'
-  end
-  else do
-    hFile = openFile(sFile,'OUTPUT')
-    if g.0RC = 0 
-    then do
+  parse arg sFile,sContent
+  select
+    when sFile = '-' then do /* console */
+      say 'DIS0017I Writing' sContent 'to console'
       do queued()
         parse pull sLine
-        call putLine hFile,sLine
+        say sLine
       end
-      call closeFile hFile
     end
-    else say 'DIS0015E Could not open file for output:' sFile
+    when g.0ZOS & isDDName(sFile) then do /* DD:ddname */
+      parse var sFile 'DD:'sDD .
+      address TSO 'EXECIO * DISKW' sDD '(FINIS'
+    end
+    otherwise do
+      hFile = openFile(sFile,'OUTPUT')
+      if g.0RC = 0
+      then do
+        say 'DIS0017I Writing' sContent 'to file:' sFile
+        do queued()
+          parse pull sLine
+          call putLine hFile,sLine
+        end
+        call closeFile hFile
+      end
+      else say 'DIS0015E Could not open' sContent 'file for output:' sFile
+    end
   end
 return
 
@@ -3891,7 +3894,7 @@ Epilog:
     end
     when g.0NIX then do
     end
-    when g.0WIN then do 
+    when g.0WIN then do
     end
     otherwise nop
   end
@@ -3899,7 +3902,7 @@ Epilog:
   if sFileOut = ''
   then sFileOut = sPathOut || sFileNameOut || sExtOut
 
-  call emitFile sFileOut
+  call emitFile sFileOut,'disassembly'
 
   /* Insert tags for any undefined labels in the tags file */
   if g.0NEWDOTS > 0
@@ -3913,7 +3916,7 @@ Epilog:
       then queue '(.'xLoc')'
       else queue '(.'xLoc'='sType')'
     end
-    call emitFile sFileTags
+    call emitFile sFileTags,'storage references'
   end
 return
 
@@ -4132,27 +4135,27 @@ return g.0EXT.sMnemonic.sUse.xMask
 Copyright (c) 2009-2020, Andrew J. Armstrong
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without 
-modification, are permitted provided that the following conditions are 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
 met:
 
-    * Redistributions of source code must retain the above copyright 
+    * Redistributions of source code must retain the above copyright
       notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright 
-      notice, this list of conditions and the following disclaimer in 
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in
       the documentation and/or other materials provided with the
       distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
 SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
 TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
 PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
@@ -5887,7 +5890,7 @@ LDY     ED65 RXYa   . Load (Long) =8 . D
 STEY    ED66 RXYa   . Store (Short) =4
 STDY    ED67 RXYa   . Store (Long) =8
 CZDT    EDA8 RSLb   A Convert to Zoned (from LD) =l(L2)
-CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2) 
+CZXT    EDA9 RSLb   A Convert to Zoned (from ED) =l(L2)
 CDZT    EDAA RSLb   . Convert from Zoned (to LD) =l(L2)
 CXZT    EDAB RSLb   . Convert from Zoned (to ED) =l(L2)
 CPDT    EDAC RSLb   A Convert to Packed (from LD) =l(L2) . P
