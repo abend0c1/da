@@ -633,9 +633,8 @@ BEGIN-JCL-COMMENTS
 **    action markers. Labels will be created at each location that   **
 **    is referenced by a machine instruction or an address constant. **
 **                                                                   **
-** 8. Press F3 to quit editing the disassembly and return to the     **
-**    AMBLIST output - where you can adjust the tags as described    **
-**    above and try again.                                           **
+** 8. Return to the AMBLIST output where you can adjust the tags as  **
+**    described above and try again.                                 **
 **                                                                   **
 ** 9. Submit an assembly job to verify that the disassembled code    **
 **    assembles cleanly.                                             **

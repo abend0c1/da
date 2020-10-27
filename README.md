@@ -410,7 +410,7 @@ WA_48    DS    F
 
 ## SYNTAX
 
-### DA (z/OS only)
+### DA (on z/OS only)
 On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
 
 `DA [dsn | hex] [(options...]`
@@ -446,15 +446,16 @@ On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
 
         `ASM`     - Generate JCL to assemble the file being edited.
 
-### DAB (z/OS, Linux or Windows)
+### DAB (on z/OS, Linux or Windows)
 On z/OS (TSO or batch), Linux or Windows you can use the DAB exec. The syntax is:
 
-`DAB [[filein | hex] [fileout | -]] [--options...]`
+`DAB [{filein | DD:ddname | hex}  [[fileout | DD:ddname | -]] [--options...]`
 
 
 Where,
 
-* `filein` - Identifies the input file to be disassembled. For z/OS it must be either a fully qualified dataset name (for example, `sys1.my.pds(mymem)`) or a DD name (for example, `DD:mydd`).
+* `filein` - Identifies the input file to be disassembled. For z/OS it must be a fully qualified dataset name. For example, `sys1.my.pds(mymem)`.
+* `DD:ddname` - Identifies an input or output file by DD name (z/OS only). For example, `DAB DD:IN DD:OUT`.
 * `hex` - Hex to be disassembled directly from the command line. For example, `DAB 90ECD00C07FE`.
 * `fileout` - Identifies the disassembled output file to be created.
               The default is the path and file name of the input file with a `.asm` extension appended.
@@ -471,7 +472,7 @@ Where,
     `AMBLIST` - Generate JCL in `fileout` to print the module identified by `filein`.
 
 
-    Note that when an instruction refers to a storage location that does not currently have a label assigned to it we have an unresolved storage reference. Any unresolved storage references will be written to a file called `[filein].tags` so that they will be automatically resolved the next time you run DAB. These tags files can be deleted at any time because they will be recreated when needed.
+Note that when an instruction refers to a storage location that does not currently have a label assigned to it we have an unresolved storage reference. Any unresolved storage references will be written to a file called `[filein].tags` so that they will be automatically resolved the next time you run DAB. These tags files can be deleted at any time because they will be recreated when needed.
 
 ## NOTES
 
@@ -631,7 +632,7 @@ immediately before the hex to which they apply:
     | `AD`| Address (Long)  |8| `AD(L304)` |
     | `B` | Binary    |n| `B'10110011'` |
     | `C` | Character |n| `CL9'Some text'` |
-    | `CA` | Character ASCII |n| `CAL9'Some ASCII text'` |
+    | `CA` | Character (ASCII) |n| `CAL15'Some ASCII text'` |
     | `D` | Long Hex Float |8| `D'+3.141592653589793'` |
     | `DH`| Long Hex Float |8| `DH'+3.141592653589793'` |
     | `DB`| Long Bin Float |8| `DB'+3.141592653589793'` |
@@ -653,29 +654,17 @@ immediately before the hex to which they apply:
     Each row of table data is parsed according to the *formatspec*.
     The *formatspec* consists of one or more space delimited assembler storage
     type declarations each having one of the following formats:
-    ```
-    [duplication_factor][type][length_modifier]
-    ```
-    ...for example: `4XL3`
-
-    or
-    ```
-    [type][length_modifier]=variable_name
-    ```
-    ...for example: `AL1=len`
-
-    or
-    ```
-    [type]L[length_expression]
-    ```
-    ...for example: `CL$len+1`
+    | Format specification | Example | Meaning |
+    | --- | --- | --- |
+    | [duplication_factor][type][length_modifier] | `4XL3` | Four groups of 3 bytes of hex |
+    | [type][length_modifier]=variable_name | `AL1=len` | Assign the next byte (in decimal) to REXX variable $len |
+    | [type]L[length_expression] | `CL$len+1` | Character string of length $len+1 bytes |
 
 
-    The default *duplication_factor* (the repetition count for the field) is 1.
-
-    The default *type* is X (hexadecimal).
-
+    The default *duplication_factor* (the repetition count for the field) is 1.<br/>
+    The default *type* is X (hexadecimal).<br/>
     The default *length_modifier* depends on the *type* as follows:
+
     | t   | Type      | Length |
     | --- | ---       | --- |
     | `A` | Address   |4|
@@ -800,7 +789,7 @@ immediately before the hex to which they apply:
     * as decimal bytes (`AL1`) if the length is 1,
     * or else as variable length hexadecimal (`XLn`).
 
-    Printable text will be defined:
+    Printable text will be formatted:
     * as EBCDIC character constants (`C`).
 
 * ## (@*xxx*)
