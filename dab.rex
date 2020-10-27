@@ -1271,13 +1271,11 @@ readRawHex: procedure expose g. i.
   /* Parse raw hex with no location offsets */
   g.0FIRSTCSECT = 0
   g.0TAGPREFIX = ''
-  sLine = i.i
-  do i = 2 while rc = 0
-    sLine = strip(sLine)
+  do i = 1 to i.0
+    sLine = strip(i.i)
     parse var sLine sLine '*'   /* Discard dump on right */
     parse var sLine sLine '   ' /* ...or anything after 3 spaces */
     xData = xData || sLine
-    sLine = i.i
   end
 return xData
 
