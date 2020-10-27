@@ -4398,8 +4398,8 @@ END-FORMAT-DEFINITIONS
 
 The instructions are defined below. There is one line per instruction, each
 specifying:
-  a. The instruction opcode
-  b. The assembler mnemonic
+  a. The assembler mnemonic
+  b. The instruction opcode
   c. The instruction format
   d. A flag used to modify the processing for certain instructions (for
      example, to convert mnemonics to extended mnemonics)
@@ -4409,8 +4409,8 @@ specifying:
      length. This is called a "hint". For example, the STC target operand
      length is always 1, but for LM it depends on the operands.
      So, the STC instruction hint is "=1", and the LM instruction hint
-     is "=hM(4)"...which means take the M1 value from the LM instruction
-     and compute the actual length from the number of 4-byte registers loaded
+     is "=hM(4)"...which takes the M1 value from the LM instruction
+     and computes the actual length from the number of 4-byte registers loaded
      by the instruction.
      The length computed in this way is stored in variable TL and can be used
      at the instruction format level yet apply to this specific instruction.
@@ -5627,10 +5627,10 @@ or:
 |     .-- Mask field (M1) value in this conditional branch instruction
 |     |
 |     |  ---Extended Mnemonic for----
-|     |  .-- Branch on Condition
-|     |  |     .-- Branch on Condition Register
-|     |  |     |     .-- Branch Indirect on Condition
-|     |  |     |     |     .-- Branch Relative on Condition
+|     |  .-------------------------- Branch on Condition
+|     |  |     .-------------------- Branch on Condition Register
+|     |  |     |     .-------------- Branch Indirect on Condition
+|     |  |     |     |     .-------- Branch Relative on Condition
 |     |  |     |     |     |     .-- Branch Relative on Condition Long
 |     |  |     |     |     |     |
 V     V  V     V     V     V     V
@@ -5669,8 +5669,8 @@ END-EXTENDED-BRANCH-MNEMONICS
 |     .-- Mask field (M4) value in this Select instruction
 |     |
 |     |  ---Extended Mnemonic for----
-|     |  .-- Select (32)
-|     |  |       .-- Select (64)
+|     |  .------------------ Select (32)
+|     |  |       .---------- Select (64)
 |     |  |       |       .-- Select High
 |     |  |       |       |
 |     |  |       |       |
