@@ -324,6 +324,7 @@ BEGIN-JCL-COMMENTS
 **              AD Address (Long)    8      AD(L304)                 **
 **              B  Binary            1      B'10110011'              **
 **              C  Character         n      CL9'Some text'           **
+**              CA Character (ASCII) n      CL9'Some ASCII text'     **
 **              D  Long Hex Float    8      D'3.141592653589793'     **
 **              DH Long Hex Float    8      DH'3.141592653589793'    **
 **              DB Long Bin Float    8      DB'3.141592653589793'    **
@@ -364,6 +365,7 @@ BEGIN-JCL-COMMENTS
 **              AD Address (long)    8                               **
 **              B  Binary            1                               **
 **              C  Character         1                               **
+**              CA Character (ASCII) 1                               **
 **              D  Long Hex Float    8                               **
 **              DH Long Hex Float    8                               **
 **              DB Long Bin Float    8                               **
@@ -616,6 +618,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20201027 AA  Added CA tag for ASCII text.              **
 **            20200825 AA  Allowed hex to be supplied on the command **
 **                         line.                                     **
 **            20200605 AA  Major redesign for version 3.0.           **
@@ -1383,7 +1386,7 @@ handleTag: procedure expose g.
   end
   select
     when sTag = '',                           /* ()  ...reset data type */
-      | inSet(sTag,'A B C D E F H P S X AD FD EH DH EB ED DB DD') then do
+      | inSet(sTag,'A B C D E F H P S X AD FD EH DH EB ED DB DD CA') then do
       g.0TYPE = sTag
       g.0ISCODE = 0            /* Decode subsequent hex as data    */
       g.0FIELD.0 = 0           /* Reset table entry generation     */
@@ -2061,6 +2064,7 @@ decodeDataField: procedure expose g.
     when sType = 'DB' then sData = doLongBinFloat(sData)
     when sType = 'ED' then sData = doShortDecFloat(sData)
     when sType = 'DD' then sData = doLongDecFloat(sData)
+    when sType = 'CA' then sData = doASCII(sData)
     otherwise              sData = doUnspecified(sData)
   end
 return sData
@@ -2157,6 +2161,30 @@ doText: procedure expose g.
       if nShort < nField /* For trailing blanks, show CLnnn'text' */
       then call saveStmt 'DC',cl(sShort,nField),,g.0XLOC8 xField
       else call saveStmt 'DC',cl(sField),,g.0XLOC8 xField
+    end
+    call nextLoc +length(sField)
+  end
+return ''
+
+doASCII: procedure expose g.
+  parse arg sData
+  if \isASCII(sData)
+  then return doHex(sData)
+  do while length(sData) > 0
+    parse var sData sField +50 sData
+    nField = length(sField)
+    if nField <= 6
+    then xField = c2x(sField)
+    else xField = ''
+    sField = toEBCDIC(sField)
+    if sField = ''       /* For all blanks, show CALnnn' ' */
+    then call saveStmt 'DC',cal(' ',nField),,g.0XLOC8 xField
+    else do
+      sShort = strip(sField,'TRAILING')
+      nShort = length(sShort)
+      if nShort < nField /* For trailing blanks, show CLnnn'text' */
+      then call saveStmt 'DC',cal(sShort,nField),,g.0XLOC8 xField
+      else call saveStmt 'DC',cal(sField),,g.0XLOC8 xField
     end
     call nextLoc +length(sField)
   end
@@ -2629,6 +2657,7 @@ doType: procedure expose g.
     when sType = 'DB' then sResidual = doLongBinFloat(sField)
     when sType = 'ED' then sResidual = doShortDecFloat(sField)
     when sType = 'DD' then sResidual = doLongDecFloat(sField)
+    when sType = 'CA' then sResidual = doASCII(sField)
     otherwise              sResidual = doHumanFriendly(sField)
   end
 return sResidual
@@ -2769,6 +2798,11 @@ cl: procedure            /* Character with length */
   if n = '' then n = length(s)
 return 'CL'n||quote(s)
 
+cal: procedure expose g.  /* ASCII character with length */
+  parse arg s,n
+  if n = '' then n = length(s)
+return 'CAL'n||quote(s)
+
 f: procedure             /* Binary fullword */
   arg xData .
 return "F'"x2d(xData,8)"'"
@@ -2812,6 +2846,14 @@ quote: procedure
   if pos("'",s) > 0 then s = replace("'","''",s)
   if pos("&",s) > 0 then s = replace("&","&&",s)
 return "'"s"'"
+
+toASCII: procedure expose g.
+  parse arg s
+return translate(s,g.0ASCII,g.0EBCDIC)
+
+toEBCDIC: procedure expose g.
+  parse arg s
+return translate(s,g.0EBCDIC,g.0ASCII)
 
 replace: procedure
   parse arg sFrom,sTo,sText
@@ -3422,6 +3464,10 @@ isText: procedure expose g.
   parse arg sData
 return verify(sData,g.0EBCDIC,'NOMATCH') = 0
 
+isASCII: procedure expose g.
+  parse arg sData
+return verify(sData,g.0ASCII,'NOMATCH') = 0
+
 isHex: procedure expose g.
   parse arg xData
 return xData \= '' & datatype(xData,'X')
@@ -3688,21 +3734,38 @@ prolog:
   call addRot 'LLCLHR','RISBLG',24,128+31,32,'Load Logical Character (L<-H)'
 
   /* EBCDIC characters that can typically be displayed by ISPF EDIT */
-  g.0EBCDIC  =        '40'x        ||, /*            */
-               xrange('4A'x,'50'x) ||, /* ¢.<(+|&    */
-               xrange('5A'x,'61'x) ||, /* !$*);^-/   */
-               xrange('6A'x,'6F'x) ||, /* |,%_>?     */
-               xrange('7A'x,'7F'x) ||, /* :#@'="     */
-               xrange('81'x,'89'x) ||, /* abcdefghi  */
-               xrange('91'x,'99'x) ||, /* jklmnopqr  */
-               xrange('A1'x,'A9'x) ||, /* ~stuvwxyz  */
-                      'AD'x        ||, /* [          */
-                      'BD'x        ||, /* ]          */
-               xrange('C0'x,'C9'x) ||, /* {ABCDEFGHI */
-               xrange('D0'x,'D9'x) ||, /* }JKLMNOPQR */
-                      'E0'x        ||, /* \          */
-               xrange('E2'x,'E9'x) ||, /* STUVWXYZ   */
-               xrange('F0'x,'F9'x)     /* 0123456789 */
+  g.0EBCDIC  = '40'x                   ||, /*            */
+               '4A4B4C4D4E4F50'x       ||, /* ¢.<(+|&    */
+               '5A5B5C5D5E5F6061'x     ||, /* !$*);^-/   */
+               '6A6B6C6D6E6F'x         ||, /* |,%_>?     */
+               '7A7B7C7D7E7F'x         ||, /* :#@'="     */
+               '818283848586878889'x   ||, /* abcdefghi  */
+               '919293949596979899'x   ||, /* jklmnopqr  */
+               'A1A2A3A4A5A6A7A8A9'x   ||, /* ~stuvwxyz  */
+               'ADBA'x                 ||, /* [[         */
+               'BDBB'x                 ||, /* ]]         */
+               'C0C1C2C3C4C5C6C7C8C9'x ||, /* {ABCDEFGHI */
+               'D0D1D2D3D4D5D6D7D8D9'x ||, /* }JKLMNOPQR */
+               'E0'x                   ||, /* \          */
+               'E2E3E4E5E6E7E8E9'x     ||, /* STUVWXYZ   */
+               'F0F1F2F3F4F5F6F7F8F9'x     /* 0123456789 */
+
+  /* The above EBCDIC characters translated to ASCII */
+  g.0ASCII   = '20'x                   ||, /*            */
+               'A22E3C282B7C26'x       ||, /* ¢.<(+|&    */
+               '21242A293B5E2D2F'x     ||, /* !$*);^-/   */
+               '4F2C255F3E3F'x         ||, /* |,%_>?     */
+               '3A2340273D22'x         ||, /* :#@'="     */
+               '616263646566676869'x   ||, /* abcdefghi  */
+               '6A6B6C6D6E6F707172'x   ||, /* jklmnopqr  */
+               '7E737475767778797A'x   ||, /* ~stuvwxyz  */
+               '5B5B'x                 ||, /* [[         */
+               '5D5D'x                 ||, /* ]]         */
+               '7B414243444546474849'x ||, /* {ABCDEFGHI */
+               '7A4A4B4C4D4E4F505152'x ||, /* }JKLMNOPQR */
+               '5C'x                   ||, /* \          */
+               '535455565758595A'x     ||, /* STUVWXYZ   */
+               '30313233343536373839'x     /* 0123456789 */
 
   address TSO 'SUBCOM ISREDIT'
   g.0EDITENV = rc = 0

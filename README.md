@@ -631,6 +631,7 @@ immediately before the hex to which they apply:
     | `AD`| Address (Long)  |8| `AD(L304)` |
     | `B` | Binary    |n| `B'10110011'` |
     | `C` | Character |n| `CL9'Some text'` |
+    | `CA` | Character ASCII |n| `CAL9'Some ASCII text'` |
     | `D` | Long Hex Float |8| `D'+3.141592653589793'` |
     | `DH`| Long Hex Float |8| `DH'+3.141592653589793'` |
     | `DB`| Long Bin Float |8| `DB'+3.141592653589793'` |
@@ -681,6 +682,7 @@ immediately before the hex to which they apply:
     | `AD`| Address (long)  |8|
     | `B` | Binary    |1|
     | `C` | Character |1|
+    | `CA` | Character (ASCII) |1|
     | `D` | Long Hex Float |8|
     | `DH`| Long Hex Float |8|
     | `DB`| Long Bin Float |8|
