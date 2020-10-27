@@ -1213,8 +1213,6 @@ readProgramObject: procedure expose g. i.
   nCSECT.n = nEndOfListing
 
   xData = ''
-  g.0FIRSTCSECT = nCSECT.1
-  g.0TAGPREFIX = '00000000 '
   do c = 1 to nCSECT.0 /* for each CSECT found */
     next = c + 1
     nBegCSECT = nTEXT.c         /* Row number of start of CSECT TEXT */
@@ -1244,8 +1242,6 @@ readModule: procedure expose g. i.
   /* Parse the output from AMBLIST */
   xData = ''
   nRow = seek('T E X T',1)
-  g.0FIRSTCSECT = nRow
-  g.0TAGPREFIX = '000000   '
   nEnd = seek('******END OF LOAD MODULE LISTING')
   bSeekingLoc = 1
   if nRow \= 0
@@ -1271,8 +1267,6 @@ return xData
 readRawHex: procedure expose g. i.
   xData = ''
   /* Parse raw hex with no location offsets */
-  g.0FIRSTCSECT = 0
-  g.0TAGPREFIX = ''
   do i = 1 to i.0
     sLine = strip(i.i)
     parse var sLine sLine '*'   /* Discard dump on right */
@@ -3958,11 +3952,6 @@ Epilog:
     call emitFile sFileTags,'storage references'
   end
 return
-
-getTempFileName: procedure expose g.
-  yymmdd = substr(date('STANDARD'),3)
-  parse value time('LONG') with hh':'mm':'ss'.'uuuuuu
-return 'DAB.D'yymmdd'.T'hh||mm||ss'.S'uuuuuu
 
 quietly: procedure expose g. o.
   parse arg sCommand
