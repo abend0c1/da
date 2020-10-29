@@ -953,8 +953,8 @@ parseCmdLine:
     if sFileOut = '' then sFileOut = 'dab.asm'
     sFileTags = 'dab.tags'
   end
-  else do /* Unix filenames (slash path separators) */
-    parse value split(sFileIn, '/', '.'),
+  else do /* Unix or Windows filenames */
+    parse value split(sFileIn, sPathSep, '.'),
           with sPathIn 'ff'x sFileNameIn 'ff'x sExtIn
     if sFileOut = '-'
     then do
@@ -963,7 +963,7 @@ parseCmdLine:
       sExtOut = ''
     end
     else do
-      parse value split(sFileOut, '/', '.'),
+      parse value split(sFileOut, sPathSep, '.'),
             with sPathOut 'ff'x sFileNameOut 'ff'x sExtOut
       if sPathOut = '' then sPathOut = sPathIn
       if sFileNameOut = '' then sFileNameOut = sFileNameIn
