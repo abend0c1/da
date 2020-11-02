@@ -9,6 +9,24 @@ The DAB REXX procedure does the same thing but does not use ISPF/EDIT, so it can
 This can be very handy for mainframe sites that have somehow lost the source code to an important executable. All you need to do is run DA or DAB against the output from an AMBLIST module listing of the executable. It is an iterative process, but at the end of the day you will have an assembler source file that, when assembled, should recreate the executable load module.
 
 
+## PREREQUISITES
+
+1. To run DA or DAB on z/OS there are no prerequisites
+
+1. To run DAB on Linux or windows, you will need to install a REXX interpreter such as:
+    1. Regina REXX      (http://regina-rexx.sourceforge.net)
+    1. Open Object REXX (http://www.oorexx.org/)
+
+    On Linux, there is usually a REXX package that you can install using your package manager, on Ubuntu for example:
+    ```
+    sudo apt install regina-rexx
+    ```
+
+    The interpreter can then be invoked in a command window by issuing, for example:
+    ```
+    rexx dab.rex input.hex output.asm
+    ```
+
 ## OVERVIEW
 
 DA is the interactive version of the disassembler and DAB is the batch version. The interactive version uses ISPF/EDIT and is generally more convenient to use on z/OS. DAB can be run in TSO or batch and, because it does not use ISPF/EDIT, it can also be run on Linux and Windows.
@@ -481,19 +499,6 @@ Note that when an instruction refers to a storage location that does not current
     comments. Otherwise the new instructions will be
     treated as data.
 
-1. To run DAB on Linux or windows, you will need to install a REXX interpreter such as:
-    1. Regina REXX      (http://regina-rexx.sourceforge.net)
-    1. Open Object REXX (http://www.oorexx.org/)
-
-    On Linux, there is usually a REXX package that you can install using your package manager, for example:
-    ```
-    sudo apt install regina-rexx
-    ```
-
-    The interpreter can then be invoked in a command window by issuing, for example:
-    ```
-    rexx dab.rex input.hex output.asm
-    ```
 
 ## USAGE
 
