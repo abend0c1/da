@@ -4281,6 +4281,8 @@ SI0    8 O1 +2 I2 +2    B1 +1  D1 +3
 SI0    . db(D1,B1) m(I2)                t(1,B1,D1,T1)
 SI1    8 O1 +2  . +2    B1 +1  D1 +3
 SI1    . db(D1,B1)                      t(TL,B1,D1,T1)
+SI2    8 O1 +4          B1 +1  D1 +3
+SI2    . db(D1,B1)                      t(TL,B1,D1,T1)
 SIL   12 O1 +4 B1 +1    D1 +3  I2 +4
 SIL    . db(D1,B1) s2(I2)               t(TL,B1,D1,T1)
 SIY   12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
@@ -4449,6 +4451,8 @@ SPM     04   RR1    c Set Program Mask
 BALR    05   RR     . Branch And Link
 BCTR    06   RR     . Branch on Count
 BCR     07   RRm    B Branch on Condition
+SSK     08   RR     . Set Storage Key (360)
+ISK     09   RR     . Insert Storage Key (360)
 SVC     0A   I      . Supervisor Call
 BSM     0B   RR     . Branch and Set Mode
 BASSM   0C   RR     . Branch And Save and Set Mode
@@ -4580,6 +4584,15 @@ LM      98   RSA    . Load Multiple (32) =hM(4) . F
 TRACE   99   RSA    . Trace (32)
 LAM     9A   RSA    . Load Access Multiple =hM(4) . F
 STAM    9B   RSA    . Store Access Multiple =hM(4) . F
+SIO     9C00 SI2    c Start I/O (360)
+SIOF    9C01 SI2    c Start I/O Fast Release (370)
+RIO     9C02 SI2    c Resume I/O (370)
+TIO     9D00 SI2    c Test I/O (360)
+CLRIO   9D01 SI2    c Clear I/O (370)
+HIO     9E00 SI2    c Halt I/O (360)
+HDV     9E01 SI2    c Halt Device (370)
+TCH     9F00 SI2    c Test Channel (370)
+CLRCH   9F01 SI2    c Clear Channel (390)
 IIHH    A50  RIax   . Insert Immediate High High (0-15)
 IIHL    A51  RIax   . Insert Immediate High Low (16-31)
 IILH    A52  RIax   . Insert Immediate Low High (32-47)
@@ -4620,6 +4633,7 @@ SIGP    AE   RSA    c Signal Processor
 MC      AF   SI     . Monitor Call
 LRA     B1   RXa    c Load Real Address (32) =4 . A
 STIDP   B202 S      . Store CPU ID =8
+STIDC   B203 S      c Store Channel ID (370) =4
 SCK     B204 S      c Set Clock =8
 STCK    B205 S      c Store Clock =8
 SCKC    B206 S      . Set Clock Comparator =8
