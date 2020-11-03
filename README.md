@@ -1,6 +1,7 @@
 # DA - Mainframe Disassembler in REXX
 
 ## FUNCTION
+This will disassemble mainframe executables that are represented in printable hex.
 
 The DA REXX procedure disassembles the AMBLIST output (or indeed any printable hex) that you are currently editing with ISPF/EDIT.
 
@@ -17,7 +18,7 @@ This can be very handy for mainframe sites that have somehow lost the source cod
     1. Regina REXX      (http://regina-rexx.sourceforge.net)
     1. Open Object REXX (http://www.oorexx.org/)
 
-    On Linux, there is usually a REXX package that you can install using your package manager, on Ubuntu for example:
+    On Linux, there is usually a REXX package that you can install using your package manager. On Ubuntu you can install it by issuing:
     ```
     sudo apt install regina-rexx
     ```
@@ -29,7 +30,9 @@ This can be very handy for mainframe sites that have somehow lost the source cod
 
 ## OVERVIEW
 
-DA is the interactive version of the disassembler and DAB is the batch version. The interactive version uses ISPF/EDIT and is generally more convenient to use on z/OS. DAB can be run in TSO or batch and, because it does not use ISPF/EDIT, it can also be run on Linux and Windows.
+DA is the **interactive** version of the disassembler and DAB is the **batch** version. 
+
+The interactive version uses ISPF/EDIT and is generally more convenient to use on z/OS. DAB can be run in TSO or batch and, because it does not use ISPF/EDIT, it can also be run on Linux and Windows.
 
 ##### DA
 *   If DA is invoked outside of the ISPF editor then it
