@@ -467,7 +467,15 @@ On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
 
         `ASM`     - Generate JCL to assemble the file being edited.
 
-### DAB (on z/OS, Linux or Windows)
+        `360`     - Disassemble using the System/360 instruction set.                                        
+                                                                
+        `370`     - Disassemble using the System/370 instruction set.                                        
+                                                                
+        `390`     - Disassemble using the System/390 instruction set.                                        
+                                                                
+        `Z`       - Disassemble using the z/Architecture instruction set (this is the default).
+
+###  (on z/OS, Linux or Windows)
 On z/OS (TSO or batch), Linux or Windows you can use the DAB exec. The syntax is:
 
 `DAB [{filein | DD:ddname | hex}  [[fileout | DD:ddname | -]] [--options...]`
@@ -491,6 +499,14 @@ Where,
     `ASM`     - Wrap the disassembled output in JCL to assemble the source
 
     `AMBLIST` - Generate JCL in `fileout` to print the module identified by `filein`.
+
+    `360`     - Disassemble using the System/360 instruction set.                                        
+                                                            
+    `370`     - Disassemble using the System/370 instruction set.                                        
+                                                            
+    `390`     - Disassemble using the System/390 instruction set.                                        
+                                                            
+    `Z`       - Disassemble using the z/Architecture instruction set (this is the default).
 
 
 Note that when an instruction refers to a storage location that does not currently have a label assigned to it we have an unresolved storage reference. Any unresolved storage references will be written to a file called `[filein].tags` so that they will be automatically resolved the next time you run DAB. These tags files can be deleted at any time because they will be recreated when needed.
