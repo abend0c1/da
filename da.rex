@@ -4507,8 +4507,8 @@ SPM     04   RR1    c 679Z Set Program Mask
 BALR    05   RR     . 679Z Branch And Link
 BCTR    06   RR     . 679Z Branch on Count
 BCR     07   RRm    B 679Z Branch on Condition
-SSK     08   RR     . 6... Set Storage Key (360)
-ISK     09   RR     . 6... Insert Storage Key (360)
+SSK     08   RR     . 6... Set Storage Key
+ISK     09   RR     . 6... Insert Storage Key
 SVC     0A   I      . 679Z Supervisor Call
 BSM     0B   RR     . ..9Z Branch and Set Mode
 BASSM   0C   RR     . ..9Z Branch And Save and Set Mode
@@ -4707,6 +4707,7 @@ SPX     B210 S      . .79Z Set Prefix =4
 STPX    B211 S      . .79Z Store Prefix =4
 STAP    B212 S      . .79Z Store CPU Address =2
 RRB     B213 S      . .79. Reset Reference Bit
+SIE     B214 S      . .79. Start Interpretive Execution
 PC      B218 S      . ..9Z Program Call
 SAC     B219 S      . ..9Z Set Address Space Control
 CFC     B21A S      C ..9Z Compare And Form Codeword
