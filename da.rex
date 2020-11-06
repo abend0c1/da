@@ -631,6 +631,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20201106 AA  Added System/370 Vector Facility opcodes. **
 **            20201106 AA  Changed the TEST option output such that  **
 **                         the opcode of each instruction is emitted **
 **                         as a label (e.g. LR -> X18  LR).          **
@@ -2971,6 +2972,7 @@ decodeInst: procedure expose g.
                       M1 M2 M3 M4 M5 M6,  /* Mask                   */
                       O1 O2,              /* Operation Code         */
                       RI1 RI2 RI3 RI4,    /* Relative Immediate     */
+                      RS2 RT2,            /* S/370 Vector Facility  */
                       RXB,                /* Vector register MSBs   */
                       R1 R2 R3,           /* Register               */
                       V1 V2 V3 V4,        /* Vector register LSBs   */
@@ -3415,6 +3417,10 @@ s5: procedure expose g.  /* Signed 20-bit integer (5 nibbles) */
   arg xData .
 return x2d(xData,5)
 
+st: procedure   /* System/370 Vector Facility operand  */
+  arg s,t       /* s=Address register, t=Stride register */
+return r(s)'('r(t)')'
+
 u: procedure expose g.  /* Unsigned integer */
   arg xData .
   n = x2d(xData)
@@ -3644,7 +3650,8 @@ prolog:
   do i = i+1 while sourceline(i) <> 'END-INSTRUCTION-DEFINITIONS'
     sLine = sourceline(i)
     parse var sLine sMnemonic xOpCode sFormat sFlag sArch sDesc '='sHint
-    call addInst sMnemonic,xOpCode,sFormat,sFlag,sArch,sDesc,sHint
+    if left(sMnemonic,1) <> '*'
+    then call addInst sMnemonic,xOpCode,sFormat,sFlag,sArch,sDesc,sHint
   end
   do i = i while sourceline(i) <> 'BEGIN-EXTENDED-BRANCH-MNEMONICS'
   end
@@ -3937,6 +3944,8 @@ return
 
 addFormat: procedure expose g.
   parse arg sFormat,nLength,sParseTemplate
+  if left(sFormat,1) = '*'
+  then return
   sParseTemplate = space(sParseTemplate)
   if isNum(nLength)
   then do
@@ -4025,6 +4034,7 @@ genInst: procedure expose g.
                       M1 M2 M3 M4 M5 M6,  /* Mask                   */
                       O1 O2,              /* Operation Code         */
                       RI1 RI2 RI3 RI4,    /* Relative Immediate     */
+                      RS2 RT2,            /* S/370 Vector Facility  */
                       RXB,                /* Vector register MSBs   */
                       R1 R2 R3,           /* Register               */
                       V1 V2 V3 V4,        /* Vector register LSBs   */
@@ -4388,6 +4398,9 @@ SSE   12 O1 +4                 B1 +1  D1 +3  B2 +1  D2 +3
 SSE    . db(D1,B1) db(D2,B2)             t(TL,B2,D2,T2)
 SSF   12 O1 +2 R3 +1    O2 +1  B1 +1  D1 +3  B2 +1  D2 +3
 SSF    . db(D1,B1) db(D2,B2) r(R3)       t(TL,B2,D2,T2)
+*
+* z/Architecture vector instruction formats:
+*
 VRIa  12 O1 +2 V1 +1     . +1  I2 +4   . +1                    RXB +1 O2 +2
 VRIa   . v(V1) u(I2)
 VRIa3 12 O1 +2 V1 +1     . +1  I2 +4  M3 +1                    RXB +1 O2 +2
@@ -4468,6 +4481,41 @@ VRX3  12 O1 +2 V1 +1    X2 +1  B2 +1  D2 +3  M3 +1             RXB +1 O2 +2
 VRX3   . v(V1) dxb(D2,X2,B2) u(M3)
 VSI   12 O1 +2 I3 +2           B2 +1  D2 +3  v1 +1             RXB +1 O2 +2
 VSI    . v(V1) db(D2,B2) u(I3)
+*
+* System/370 Vector Facility instruction formats:
+*
+QST    8 O1 +4  R3 +1   RT2 +1  V1 +1  RS2 +1
+QST    . v(V1) r(R3) st(RS2,RT2)
+QSTm   8 O1 +4  R3 +1   RT2 +1  M1 +1  RS2 +1
+QSTm   . m(M1) r(R3) st(RS2,RT2)
+QV     8 O1 +4  R3 +1     . +1  V1 +1   V2 +1
+QV     . v(V1) r(R3) v(V2)
+QVm    8 O1 +4  R3 +1     . +1  M1 +1   V2 +1
+QVm    . m(M1)  r(R3) v(V2)
+QV2    8 O1 +4 QR2 +1     . +1  V1 +1    . +1
+QV2    . v(V1) r(QR2)
+VST    8 O1 +4  V3 +1   RT2 +1  V1 +1  RS2 +1
+VST    . v(V1) v(V3) st(RS2,RT2)
+VST2   8 O1 +4   . +1   RT2 +1  V1 +1  RS2 +1
+VST2   . v(V1) st(RS2,RT2)
+VSTm   8 O1 +4  V3 +1   RT2 +1  M1 +1  RS2 +1
+VSTm   . m(M1) v(V3) st(RS2,RT2)
+VV     8 O1 +4  V3 +1     . +1  V1 +1   V2 +1
+VV     . v(V1) v(V3) v(V2)
+VVm    8 O1 +4  V3 +1     . +1  M1 +1   V2 +1
+VVm    . m(M1)  v(V3) v(V2)
+VV1    8 O1 +4  V3 +1     . +1  V1 +1    . +1
+VV1    . v(V1)
+VV2    8 O1 +4            . +2  V1 +1   V2 +1
+VV2    . v(V1) v(V2)
+RSE   12 O1 +4  R3 +1     . +1  V1 +1    . +1 B2 +1 D2 +3
+RSE    . v(V1) r(R3) db(D2,B2)
+VR     8 O1 +4  R3 +1     . +1  V1 +1   R2 +1
+VR     . v(V1) r(R2) r(R3)
+VR1   8 O1 +4             . +2  V1 +1    . +1
+VR1    . v(V1)
+VS     8 O1 +4   . +3                  RS2 +1
+VS     . r(RS2)
 END-FORMAT-DEFINITIONS
 
 
@@ -4681,22 +4729,195 @@ HIO     9E00 SI2    c 67.. Halt I/O
 HDV     9E01 SI2    c .79. Halt Device
 TCH     9F00 SI2    c .79Z Test Channel
 CLRCH   9F01 SI2    c ..9Z Clear Channel
+VAE     A400 VST    . .7.. Vector Add [Vec+Stg] (SH)
+VSE     A401 VST    . .7.. Vector Subtract [Vec-Stg] (SH)
+VME     A402 VST    . .7.. Vector Multiply [Vec*Stg] (LH<-SH)
+VDE     A403 VST    . .7.. Vector Divide [Vec/Stg] (SH)
+VMAE    A404 VST    . .7.. Vector Multiply and Add [Vec*Stg] (LH<-SH)
+VMSE    A405 VST    . .7.. Vector Multiply and Subtract [Vec*Stg] (LH<-SH)
+VMCE    A406 VST    . .7.. Vector Multiply and Accumulate [Vec*Stg] (LH<-SH)
+VACE    A407 VST2   . .7.. Vector Accumulate [Stg] (SH)
+VCE     A408 VSTm   . .7.. Vector Compare [Vec:Stg] (SH)
+VL      A409 VST2   . .7.. Vector Load [Vec<-Stg] (32)
+*VLE    A409 VST2   . .7.. Vector Load [Vec<-Stg] (SH)
+VLM     A40A VST2   . .7.. Vector Load Matched [Vec<-Stg] (32)
+*VLME   A40A VST2   . .7.. Vector Load Matched [Vec<-Stg] (SH)
+VLY     A40B VST2   . .7.. Vector Load Expanded (32)
+*VLYE   A40B VST2   . .7.. Vector Load Expanded (SH)
+VST     A40D VST2   . .7.. Vector Store [Stg<-Vec] (32)
+*VSTE   A40D VST2   . .7.. Vector Store [Stg<-Vec] (SH)
+VSTM    A40E VST2   . .7.. Vector Store Matched [Stg<-Vec] (32)
+*VSTM   A40E VST2   . .7.. Vector Store Matched [Stg<-Vec] (SH)
+VSTK    A40F VST2   . .7.. Vector Store Compressed [Stg<-Vec] (32)
+*VSTK   A40F VST2   . .7.. Vector Store Compressed [Stg<-Vec] (SH)
+VAD     A410 VST    . .7.. Vector Add [Vec+Stg] (LH)
+VSD     A411 VST    . .7.. Vector Subtract [Vec-Stg] (LH)
+VMD     A412 VST    . .7.. Vector Multiply [Vec*Stg] (LH)
+VDD     A413 VST    . .7.. Vector Divide [Vec/Stg] (LH)
+VMAD    A414 VST    . .7.. Vector Multiply and Add [Vec*Stg] (LH)
+VMSD    A415 VST    . .7.. Vector Multiply and Subtract [Vec*Stg] (LH)
+VMCD    A416 VST    . .7.. Vector Multiply and Accumulate [Vec*Stg] (LH)
+VACD    A417 VST2   . .7.. Vector Accumulate [Stg] (LH)
+VCD     A418 VSTm   . .7.. Vector Compare [Vec:Stg] (LH)
+VLD     A419 VST2   . .7.. Vector Load [Vec<-Stg] (LH)
+VLMD    A41A VST2   . .7.. Vector Load Matched [Vec<-Stg] (LH)
+VLYD    A41B VST2   . .7.. Vector Load Expanded (LH)
+VSTD    A41D VST2   . .7.. Vector Store [Stg<-Vec] (LH)
+VSTMD   A41E VST2   . .7.. Vector Store Matched [Stg<-Vec] (LH)
+VSTKD   A41F VST2   . .7.. Vector Store Compressed [Stg<-Vec] (LH)
+VA      A420 VST    . .7.. Vector Add [Vec+Stg] (32)
+VS      A421 VST    . .7.. Vector Subtract [Vec-Stg] (32)
+VM      A422 VST    . .7.. Vector Multiply [Vec*Stg] (32)
+VN      A424 VST    . .7.. Vector AND [Vec&Stg] (32)
+VO      A425 VST    . .7.. Vector OR [Vec&Stg] (32)
+VX      A426 VST    . .7.. Vector Exclusive OR [Vec&Stg] (32)
+VC      A428 VSTm   . .7.. Vector Compare [Vec:Stg] (32)
+VLH     A429 VST2   . .7.. Vector Load Halfword [Vec<-Stg] (16)
+VLINT   A42A VST2   . .7.. Vector Load Integer Vector
+VSTH    A42D VST2   . .7.. Vector Store Halfword [Stg<-Vec] (16)
+VAES    A480 QST    . .7.. Vector Add [Reg+Stg] (SH)
+VSES    A481 QST    . .7.. Vector Subtract [Reg-Stg] (SH)
+VMES    A482 QST    . .7.. Vector Multiply [Reg*Stg] (LH<-SH)
+VDES    A483 QST    . .7.. Vector Divide [Reg/Stg] (SH)
+VMAES   A484 QST    . .7.. Vector Multiply and Add [Reg*Stg] (LH<-SH)
+VMSES   A485 QST    . .7.. Vector Multiply and Subtract [Reg*Stg] (LH<-SH)
+VCES    A488 QSTm   . .7.. Vector Compare [Reg:Stg] (SH)
+VADS    A490 QST    . .7.. Vector Add [Reg+Stg] (LH)
+VSDS    A491 QST    . .7.. Vector Subtract [Reg-Stg] (LH)
+VMDS    A492 QST    . .7.. Vector Multiply [Reg*Stg] (LH)
+VDDS    A493 QST    . .7.. Vector Divide [Reg/Stg] (LH)
+VMADS   A494 QST    . .7.. Vector Multiply and Add [Reg*Stg] (LH)
+VMSDS   A495 QST    . .7.. Vector Multiply and Subtract [Reg*Stg] (LH)
+VCDS    A498 QSTm   . .7.. Vector Compare [Reg:Stg] (LH)
+VAS     A4A0 QST    . .7.. Vector Add [Reg+Stg] (32)
+VSS     A4A1 QST    . .7.. Vector Subtract [Reg-Stg] (32)
+VMS     A4A2 QST    . .7.. Vector Multiply [Reg*Stg] (32)
+VNS     A4A4 QST    . .7.. Vector AND [Reg&Stg] (32)
+VOS     A4A5 QST    . .7.. Vector OR [Reg&Stg] (32)
+VXS     A4A6 QST    . .7.. Vector Exclusive OR [Reg&Stg] (32)
+VCS     A4A8 QSTm   . .7.. Vector Compare [Reg:Stg] (32)
 IIHH    A50  RIax   . ...Z Insert Immediate High High (0-15)
+VAER    A500 VV     . .7.. Vector Add [Vec+Vec] (SH)
+VSER    A501 VV     . .7.. Vector Subtract [Vec-Vec] (SH)
+VMER    A502 VV     . .7.. Vector Multiply [Vec*Vec] (LH<-SH)
+VDER    A503 VV     . .7.. Vector Divide [Vec/Vec] (SH)
+VMCER   A506 VV     . .7.. Vector Multiply and Accumulate [Vec*Vec] (LH<-SH)
+VACER   A507 VV2    . .7.. Vector Accumulate [Vec] (SH)
+VCER    A508 VVm    . .7.. Vector Compare [Vec:Vec] (SH)
+VLR     A509 VV2    . .7.. Vector Load [Vec<-Vec] (32)
+*VLER   A509 VV2    . .7.. Vector Load [Vec<-Vec] (SH)
+VLMR    A50A VV2    . .7.. Vector Load Matched [Vec<-Vec] (32)
+*VLME   A50A VV2    . .7.. Vector Load Matched [Vec<-Vec] (SH)
+VLZR    A50B VV     . .7.. Vector Load Zero (32)
+*VLZE   A50B VV     . .7.. Vector Load Zero (SH)
 IIHL    A51  RIax   . ...Z Insert Immediate High Low (16-31)
+VADR    A510 VV     . .7.. Vector Add [Vec+Vec] (LH)
+VSDR    A511 VV     . .7.. Vector Subtract [Vec-Vec] (LH)
+VMDR    A512 VV     . .7.. Vector Multiply [Vec*Vec] (LH)
+VDDR    A513 VV     . .7.. Vector Divide [Vec/Vec] (LH)
+VMCDR   A516 VV     . .7.. Vector Multiply and Accumulate [Vec*Vec] (LH)
+VACDR   A517 VV2    . .7.. Vector Accumulate [Vec] (LH)
+VCDR    A518 VVm    . .7.. Vector Compare [Vec:Vec] (LH)
+VLDR    A519 VV2    . .7.. Vector Load [Vec<-Vec] (LH)
+VLMDR   A51A VV2    . .7.. Vector Load Matched [Vec<-Vec] (LH)
+VLZDR   A51B VV     . .7.. Vector Load Zero (LH)
 IILH    A52  RIax   . ...Z Insert Immediate Low High (32-47)
+VAR     A520 VV     . .7.. Vector Add [Vec+Vec] (32)
+VSR     A521 VV     . .7.. Vector Subtract [Vec-Vec] (32)
+VMR     A522 VV     . .7.. Vector Multiply [Vec*Vec] (32)
+VNR     A524 VV     . .7.. Vector AND [Vec&Vec] (32)
+VOR     A525 VV     . .7.. Vector OR [Vec&Vec] (32)
+VXR     A526 VV     . .7.. Vector Exclusive OR [Vec&Vec] (32)
+VCR     A528 VVm    . .7.. Vector Compare [Vec:Vec] (32)
 IILL    A53  RIax   . ...Z Insert Immediate Low Low (48-63)
 NIHH    A54  RIax   A ...Z And Immediate High High (0-15)
+VLPER   A540 VV2    . .7.. Vector Load Positive [Vec<-Vec] (SH)
+VLNER   A541 VV2    . .7.. Vector Load Negative [Vec<-Vec] (SH)
+VLCER   A542 VV2    . .7.. Vector Load Complement (SH)
 NIHL    A55  RIax   A ...Z And Immediate High Low (16-31)
+VLPDR   A550 VV2    . .7.. Vector Load Positive [Vec<-Vec] (LH)
+VLNDR   A551 VV2    . .7.. Vector Load Negative [Vec<-Vec] (LH)
+VLCDR   A552 VV2    . .7.. Vector Load Complement (LH)
 NILH    A56  RIax   A ...Z And Immediate Low High (32-47)
+VLPR    A560 VV2    . .7.. Vector Load Positive [Vec<-Vec] (32)
+VLNR    A561 VV2    . .7.. Vector Load Negative [Vec<-Vec] (32)
+VLCR    A562 VV2    . .7.. Vector Load Complement (32)
 NILL    A57  RIax   A ...Z And Immediate Low Low (48-63)
 OIHH    A58  RIax   A ...Z Or Immediate High High (0-15)
+VAEQ    A580 QV     . .7.. Vector Add [Reg+Vec] (SH)
+VSEQ    A581 QV     . .7.. Vector Subtract [Reg-Vec] (SH)
+VMEQ    A582 QV     . .7.. Vector Multiply [Reg*Vec] (LH<-SH)
+VDEQ    A583 QV     . .7.. Vector Divide [Reg/Vec] (SH)
+VMAEQ   A584 QV     . .7.. Vector Multiply and Add [Reg*Vec] (LH<-SH)
+VMSEQ   A585 QV     . .7.. Vector Multiply and Subtract [Reg*Vec] (LH<-SH)
+VCEQ    A588 QVm    . .7.. Vector Compare [Reg:Vec] (SH)
+VLEQ    A589 QV2    . .7.. Vector Load [Reg<-Vec] (SH)
+VLMEQ   A58A QV2    . .7.. Vector Load Matched [Reg<-Vec] (SH)
 OIHL    A59  RIax   A ...Z Or Immediate High Low (16-31)
+VADQ    A590 QV     . .7.. Vector Add [Reg+Vec] (LH)
+VSDQ    A591 QV     . .7.. Vector Subtract [Reg-Vec] (LH)
+VMDQ    A592 QV     . .7.. Vector Multiply [Reg*Vec] (LH)
+VDDQ    A593 QV     . .7.. Vector Divide [Reg/Vec] (LH)
+VMADQ   A594 QV     . .7.. Vector Multiply and Add [Reg*Vec] (LH)
+VMSDQ   A595 QV     . .7.. Vector Multiply and Subtract [Reg*Vec] (LH)
+VCDQ    A598 QVm    . .7.. Vector Compare [Reg:Vec] (LH)
+VLDQ    A599 QV2    . .7.. Vector Load [Reg<-Vec] (LH)
+VLMDQ   A59A QV2    . .7.. Vector Load Matched [Reg<-Vec] (LH)
 OILH    A5A  RIax   A ...Z Or Immediate Low High (32-47)
+VAQ     A5A0 QV     . .7.. Vector Add [Reg+Vec] (32)
+VSQ     A5A1 QV     . .7.. Vector Subtract [Reg-Vec] (32)
+VMQ     A5A2 QV     . .7.. Vector Multiply [Reg*Vec] (32)
+VNQ     A5A4 QV     . .7.. Vector AND [Reg&Vec] (32)
+VOQ     A5A5 QV     . .7.. Vector OR [Reg&Vec] (32)
+VXQ     A5A6 QV     . .7.. Vector Exclusive OR [Reg&Vec] (32)
+VCQ     A5A8 QVm    . .7.. Vector Compare [Reg:Vec] (32)
+VLQ     A5A9 QV2    . .7.. Vector Load [Reg<-Vec] (32)
+VLMQ    A5AA QV2    . .7.. Vector Load Matched [Reg<-Vec] (32)
 OILL    A5B  RIax   A ...Z Or Immediate Low Low (48-63)
 LLIHH   A5C  RIax   . ...Z Load Logical Immediate High High (0-15)
 LLIHL   A5D  RIax   . ...Z Load Logical Immediate High Low (16-31)
 LLILH   A5E  RIax   . ...Z Load Logical Immediate Low High (32-47)
 LLILL   A5F  RIax   . ...Z Load Logical Immediate Low Low (48-63)
+VMXSE   A600 VR     . .7.. Vector Maximum Signed (SH)
+VMNSE   A601 VR     . .7.. Vector Minimum Signed (SH)
+VMXAE   A602 VR     . .7.. Vector Maximum Absolute (SH)
+VLELE   A608 VR     . .7.. Vector Load Element (SH)
+VXELE   A609 VR     . .7.. Vector Extract Element (SH)
+VMXSD   A610 VR     . .7.. Vector Maximum Signed (LH)
+VMNSD   A611 VR     . .7.. Vector Minimum Signed (LH)
+VMXAD   A612 VR     . .7.. Vector Maximum Absolute (LH)
+VLELD   A618 VR     . .7.. Vector Load Element (LH)
+VXELD   A619 VR     . .7.. Vector Extract Element (LH)
+VSPSD   A61A VR     . .7.. Vector Sum Partial Sums (LH)
+VZPSD   A61B VR1    . .7.. Vector Zero Partial Sums
+VLEL    A628 VR     . .7.. Vector Load Element (32)
+VXEL    A629 VR     . .7.. Vector Extract Element (32)
+VTVM    A640 RRE0   c .7.. Vector Test VMR
+VCVM    A641 RRE0   . .7.. Vector Complement VMR
+VCZVM   A642 RRE1   c .7.. Vector Count Left Zeros in VMR
+VCOVM   A643 RRE1   c .7.. Vector Count Ones in VMR
+VXVC    A644 RRE1   . .7.. Vector Extract VCT
+VLVCU   A645 RRE1   c .7.. Vector Load VCT and Update
+VXVMM   A646 RRE1   . .7.. Vector Extract Vector Mask Mode
+VRRS    A648 RRE1   c .7.. Vector Restore VR
+VRSVC   A649 RRE1   c .7.. Vector Save Changed VR
+VRSV    A64A RRE1   c .7.. Vector Save VR
+VLVM    A680 VS     . .7.. Vector Load VMR
+VLCVM   A681 VS     . .7.. Vector Load VMR Complement
+VSTVM   A682 VS     . .7.. Vector Store VMR
+VNVM    A684 VS     . .7.. Vector AND to VMR
+VOVM    A685 VS     . .7.. Vector OR to VMR
+VXVM    A686 VS     . .7.. Vector Exclusive OR to VMR
+VSRSV   A6C0 S      . .7.. Vector Save VSR
+VMRSV   A6C1 S      . .7.. Vector Save VMR
+VSRRS   A6C2 S      . .7.. Vector Restore VSR
+VMRRS   A6C3 S      . .7.. Vector Restore VMR
+VLVCA   A6C4 S      c .7.. Vector Load VCT from Address
+VRCL    A6C5 S      . .7.. Vector Clear VR
+VSVMM   A6C6 S      . .7.. Vector Set Vector Mask Mode
+VSTVP   A6C8 S      . .7.. Vector Store Vector Parameters
+VACSV   A6CA S      . .7.. Vector Save VAC
+VACRS   A6CB S      . .7.. Vector Restore VAC
 TMLH    A70  RIax   M ..9Z Test under Mask Low High (32-47)
 TMLL    A71  RIax   M ..9Z Test under Mask Low Low (48-63)
 TMHH    A72  RIax   M ..9Z Test under Mask High High (0-15)
@@ -5339,6 +5560,15 @@ LFH     E3CA RXYa   . ...Z Load High (32) =4 . F
 STFH    E3CB RXYa   . ...Z Store High (32) =4 . F
 CHF     E3CD RXYa   C ...Z Compare High (32) =4 . F
 CLHF    E3CF RXYa   C ...Z Compare Logical High (32) =4 . F
+VLI     E400 RSE    . .7.. Vector Load Indirect (32)
+*VLIE   E400 RSE    . .7.. Vector Load Indirect (32)
+VSTI    E401 RSE    . .7.. Vector Store Indirect (32)
+*VSTI   E401 RSE    . .7.. Vector Store Indirect (32)
+VLID    E410 RSE    . .7.. Vector Load Indirect (LH)
+VSTID   E411 RSE    . .7.. Vector Store Indirect (LH)
+VSRL    E424 RSE    . .7.. Vector Shift Right Single Logical
+VSLL    E425 RSE    . .7.. Vector Shift Left Single Logical
+VLBIX   E428 RSE    c .7.. Vector Load Bit Index
 LASP    E500 SSE    c .79Z Load Address Space Parameters
 TPROT   E501 SSE    c .79Z Test Protection
 STRAG   E502 SSE    . .79Z Store Real Address =8
