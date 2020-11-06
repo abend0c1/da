@@ -4969,9 +4969,9 @@ SSM     80   SI1    . 679Z Set System Mask
 LPSW    82   SI1    c 679Z Load Program Status Word =8
 DIAG    83   SI     . 679Z Diagnose
 WRD     84   SI     . 6... Write Direct
-JXH     84   RSI    . .79Z Branch Relative on Index High (32)
+JXH     84   RSI    . ..9Z Branch Relative on Index High (32)
 RDD     85   SI     . 6... Read Direct
-JXLE    85   RSI    . .79Z Branch Relative on Index Low or Equal (32)
+JXLE    85   RSI    . ..9Z Branch Relative on Index Low or Equal (32)
 BXH     86   RSA    . 679Z Branch on Index High (32)
 BXLE    87   RSA    . 679Z Branch on Index Low or Equal (32)
 SRL     88   RSa    . 679Z Shift Right Single Logical (32)
