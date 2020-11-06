@@ -4647,9 +4647,9 @@ SSM     80   SI1    . 679Z Set System Mask
 LPSW    82   SI1    c 679Z Load Program Status Word =8
 DIAG    83   SI     . 679Z Diagnose
 WRD     84   SI     . 6... Write Direct
-JXH     84   RSI    . .79Z Branch Relative on Index High (32)
+JXH     84   RSI    . ..9Z Branch Relative on Index High (32)
 RDD     85   SI     . 6... Read Direct
-JXLE    85   RSI    . .79Z Branch Relative on Index Low or Equal (32)
+JXLE    85   RSI    . ..9Z Branch Relative on Index Low or Equal (32)
 BXH     86   RSA    . 679Z Branch on Index High (32)
 BXLE    87   RSA    . 679Z Branch on Index Low or Equal (32)
 SRL     88   RSa    . 679Z Shift Right Single Logical (32)
@@ -5353,7 +5353,7 @@ CGHSI   E558 SIL    C ...Z Compare Halfword Immediate (64<-16) =8 FD
 CLGHSI  E559 SIL    C ...Z Compare Logical Immediate (64<-16) =8 FD
 CHSI    E55C SIL    C ...Z Compare Halfword Immediate (32<-16) =4 F
 CLFHSI  E55D SIL    C ...Z Compare Logical Immediate (32<-16) =4 F
-TBEGIN  E560 SIL    c .79Z Transaction Begin (noncontrained)
+TBEGIN  E560 SIL    c .79Z Transaction Begin (nonconstrained)
 TBEGINC E561 SIL    c .79Z Transaction Begin (constrained)
 VPKZ    E634 VSI    . ...Z Vector Pack Zoned
 VLRL    E635 VSI    . ...Z Vector Load Rightmost with Length

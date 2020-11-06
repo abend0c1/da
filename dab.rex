@@ -5675,7 +5675,7 @@ CGHSI   E558 SIL    C ...Z Compare Halfword Immediate (64<-16) =8 FD
 CLGHSI  E559 SIL    C ...Z Compare Logical Immediate (64<-16) =8 FD
 CHSI    E55C SIL    C ...Z Compare Halfword Immediate (32<-16) =4 F
 CLFHSI  E55D SIL    C ...Z Compare Logical Immediate (32<-16) =4 F
-TBEGIN  E560 SIL    c .79Z Transaction Begin (noncontrained)
+TBEGIN  E560 SIL    c .79Z Transaction Begin (nonconstrained)
 TBEGINC E561 SIL    c .79Z Transaction Begin (constrained)
 VPKZ    E634 VSI    . ...Z Vector Pack Zoned
 VLRL    E635 VSI    . ...Z Vector Load Rightmost with Length
