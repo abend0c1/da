@@ -1330,13 +1330,34 @@ return
 
 generateTestBed: procedure expose g.
   select 
-    when g.0ARCH = '6' then sProcess = '*PROCESS FLAG(8)'
-    when g.0ARCH = '7' then sProcess = '*PROCESS FLAG(8),MACHINE(S370XA)'
-    when g.0ARCH = '9' then sProcess = '*PROCESS FLAG(8),MACHINE(S390E)'
-    when g.0ARCH = 'Z' then sProcess = '*PROCESS FLAG(8),MACHINE(Z15)'
-    otherwise
+    when g.0ARCH = '6' then do
+      call emit '*PROCESS FLAG(8)'
+      call emit '*'
+      call emit '* System/360 Instructions'
+      call emit '*'
+    end
+    when g.0ARCH = '7' then do
+      call emit '*PROCESS FLAG(8),MACHINE(S370XA)'
+      call emit '*'
+      call emit '* System/370 Instructions'
+      call emit '*'
+    end
+    when g.0ARCH = '9' then do 
+      call emit '*PROCESS FLAG(8),MACHINE(S390E)'
+      call emit '*'
+      call emit '* System/390 Instructions'
+      call emit '*'
+    end
+    when g.0ARCH = 'Z' then do
+      call emit '*PROCESS FLAG(8),MACHINE(Z15)'
+      call emit '*'
+      call emit '* z/Architecture Instructions'
+      call emit '*'
+    end
+    otherwise do
+      call emit '*PROCESS FLAG(8)'
+    end
   end
-  call emit sProcess
   /* Hack to workaround HLASM refusing to assemble DIAG/PGIN/PGOUT */
   call emit '         MACRO'
   call emit '         DIAG'
