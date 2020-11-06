@@ -631,6 +631,9 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20201106 AA  Changed the TEST option output such that  **
+**                         the opcode of each instruction is emitted **
+**                         as a label (e.g. LR -> X18  LR).          **
 **            20201104 AA  Added options: 360, 370, 390 and Z        **
 **                         to disassemble System/360, System/370,    **
 **                         System/390 and z/Architecture modules.    **
@@ -1252,20 +1255,30 @@ nextLoc: procedure expose g.
 return
 
 generateTestBed: procedure expose g.
-  call emit '*PROCESS MACHINE(z15),FLAG(8)'
+   select 
+    when g.0ARCH = '6' then sProcess = '*PROCESS FLAG(8)'
+    when g.0ARCH = '7' then sProcess = '*PROCESS FLAG(8),MACHINE(S370XA)'
+    when g.0ARCH = '9' then sProcess = '*PROCESS FLAG(8),MACHINE(S390E)'
+    when g.0ARCH = 'Z' then sProcess = '*PROCESS FLAG(8),MACHINE(Z15)'
+    otherwise
+  end
+  call emit sProcess
   /* Hack to workaround HLASM refusing to assemble DIAG/PGIN/PGOUT */
   call emit '         MACRO'
   call emit '         DIAG'
   call emit "         DC    X'83000000'"
   call emit '         MEND'
-  call emit '         MACRO'
-  call emit '         PGIN'
-  call emit "         DC    X'B22E0000'"
-  call emit '         MEND'
-  call emit '         MACRO'
-  call emit '         PGOUT'
-  call emit "         DC    X'B22F0000'"
-  call emit '         MEND'
+  if pos(g.0ARCH,'9Z') > 0 
+  then do
+    call emit '         MACRO'
+    call emit '         PGIN'
+    call emit "         DC    X'B22E0000'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         PGOUT'
+    call emit "         DC    X'B22F0000'"
+    call emit '         MEND'
+  end
   call emit '         START'
   call emit '         USING *,R0,R1'
   do i = 1 while sourceline(i) <> 'BEGIN-INSTRUCTION-DEFINITIONS'
@@ -1273,7 +1286,8 @@ generateTestBed: procedure expose g.
   do i = i+3 while sourceline(i) <> 'END-INSTRUCTION-DEFINITIONS'
     sLine = sourceline(i)
     parse var sLine sMnemonic xOpCode sFormat sFlag sArch sDesc '='sHint
-    call genInst xOpCode,sMnemonic,sFormat,sDesc
+    if pos(g.0ARCH,sArch) > 0 & left(sMnemonic,1) <> '*'
+    then call genInst xOpCode,sMnemonic,sFormat,sDesc
   end
   call emit '*'
   call emit '* General purpose register equates'
@@ -1281,32 +1295,45 @@ generateTestBed: procedure expose g.
   do i = 0 to 15
     call emit left('R'i,8) 'EQU   'i
   end
-  call emit '*'
-  call emit '* Vector register equates'
-  call emit '*'
-  do i = 0 to 31
-    call emit left('V'i,8) 'EQU   'i
-  end
-  call emit '*'
-  call emit '* Vector element size equates'
-  call emit '*'
-  do i = 0 to 15
-    x = d2x(i)
-    sEquate = g.0VES.x
-    if sEquate <> ''
-    then do
-      call emit left(sEquate,12) 'EQU   'i
+  select
+    when g.0ARCH = '6' then nop
+    when g.0ARCH = '7' then do
+      call emit '*'
+      call emit '* Vector register equates'
+      call emit '*'
+      do i = 0 to 15
+        call emit left('V'i,8) 'EQU   'i
+      end
     end
-  end
-  call emit '*'
-  call emit '* Vector floating point format equates'
-  call emit '*'
-  do i = 0 to 15
-    x = d2x(i)
-    sEquate = g.0FPF.x
-    if sEquate <> ''
-    then do
-      call emit left(sEquate,13) 'EQU   'i
+    otherwise do
+      call emit '*'
+      call emit '* Vector register equates'
+      call emit '*'
+      do i = 0 to 31
+        call emit left('V'i,8) 'EQU   'i
+      end
+      call emit '*'
+      call emit '* Vector element size equates'
+      call emit '*'
+      do i = 0 to 15
+        x = d2x(i)
+        sEquate = g.0VES.x
+        if sEquate <> ''
+        then do
+          call emit left(sEquate,12) 'EQU   'i
+        end
+      end
+      call emit '*'
+      call emit '* Vector floating point format equates'
+      call emit '*'
+      do i = 0 to 15
+        x = d2x(i)
+        sEquate = g.0FPF.x
+        if sEquate <> ''
+        then do
+          call emit left(sEquate,13) 'EQU   'i
+        end
+      end
     end
   end
   call emit '         END'
@@ -4043,6 +4070,7 @@ genInst: procedure expose g.
     end
     otherwise nop
   end
+  call setLabel 'X'xOpCode,g.0XLOC
   interpret 'o =' g.0EMIT.sFormat     /* Generate instruction operands  */
   sOperands = space(o,,',')
   nMnemonic = max(length(sMnemonic),5)
