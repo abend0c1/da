@@ -4715,9 +4715,9 @@ SU      7F   RXa    A 679Z Subtract Unnormalized (SH) =4 . E
 SSM     80   SI1    . 679Z Set System Mask
 LPSW    82   SI1    c 679Z Load Program Status Word =8
 DIAG    83   SI     . 679Z Diagnose
-WRD     84   SI     . 6... Write Direct
+WRD     84   SI     . 67.. Write Direct
 JXH     84   RSI    . ..9Z Branch Relative on Index High (32)
-RDD     85   SI     . 6... Read Direct
+RDD     85   SI     . 67.. Read Direct
 JXLE    85   RSI    . ..9Z Branch Relative on Index Low or Equal (32)
 BXH     86   RSA    . 679Z Branch on Index High (32)
 BXLE    87   RSA    . 679Z Branch on Index Low or Equal (32)
@@ -5592,7 +5592,7 @@ VSLL    E425 RSE    . .7.. Vector Shift Left Single Logical
 VLBIX   E428 RSE    c .7.. Vector Load Bit Index
 LASP    E500 SSE    c .79Z Load Address Space Parameters
 TPROT   E501 SSE    c .79Z Test Protection
-STRAG   E502 SSE    . .79Z Store Real Address =8
+STRAG   E502 SSE    . ..9Z Store Real Address =8
 MVCSK   E50E SSE    . .79Z Move with Source Key
 MVCDK   E50F SSE    . .79Z Move with Destination Key
 MVHHI   E544 SIL    . ...Z Move (16<-16) =2 H
