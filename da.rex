@@ -5011,6 +5011,7 @@ RCHP    B23B S      c ..9Z Reset Channel Path
 SCHM    B23C S      . ..9Z Set Channel Monitor
 BAKR    B240 RRE    . ..9Z Branch And Stack
 CKSM    B241 RRE    c ..9Z Checksum
+addfrr  B242 RRE    . .7.. MVS Assist: Add FRR
 SQDR    B244 RRE    . ..9Z Square Root (LH)
 SQER    B245 RRE    . ..9Z Square Root (SH)
 STURA   B246 RRE    . ..9Z Store Using Real Address (32)
@@ -5593,6 +5594,18 @@ VLBIX   E428 RSE    c .7.. Vector Load Bit Index
 LASP    E500 SSE    c .79Z Load Address Space Parameters
 TPROT   E501 SSE    c .79Z Test Protection
 STRAG   E502 SSE    . ..9Z Store Real Address =8
+fixpg   E502 SSE    . .7.. MVS Assist: Fix Page
+svcas   E503 SSE    . .7.. MVS Assist: SVC Assist
+olcll   E504 SSE    . .7.. MVS Assist: Obtain Local Lock
+rlcll   E505 SSE    . .7.. MVS Assist: Release Local Lock
+ocmsl   E506 SSE    . .7.. MVS Assist: Obtain CMS Lock
+rcmsl   E507 SSE    . .7.. MVS Assist: Release CMS Lock
+tsvci   E508 SSE    . .7.. MVS Assist: Trace SVC Interruption
+tpgmi   E509 SSE    . .7.. MVS Assist: Trace Program Interruption
+tsrbd   E50A SSE    . .7.. MVS Assist: Trace Initial SRB Dispatch
+tioi    E50B SSE    . .7.. MVS Assist: Trace I/O Interruption
+ttskd   E50C SSE    . .7.. MVS Assist: Trace Task Dispatch
+tsvcr   E50D SSE    . .7.. MVS Assist: Trace SVC Return
 MVCSK   E50E SSE    . .79Z Move with Source Key
 MVCDK   E50F SSE    . .79Z Move with Destination Key
 MVHHI   E544 SIL    . ...Z Move (16<-16) =2 H
