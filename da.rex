@@ -4962,6 +4962,8 @@ STOSM   AD   SI     . .79Z Store Then Or System Mask =1
 SIGP    AE   RSA    c .79Z Signal Processor
 MC      AF   SI     . .79Z Monitor Call
 LRA     B1   RXa    c .79Z Load Real Address (32) =4 . A
+CONCS   B200 S      . .7.. Connect Channel Set
+DISCS   B201 S      . .7.. Disconnect Channel Set
 STIDP   B202 S      . .79Z Store CPU ID =8
 STIDC   B203 S      c .79Z Store Channel ID (370) =4
 SCK     B204 S      c .79Z Set Clock =8
