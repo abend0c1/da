@@ -2862,7 +2862,7 @@ adld: procedure          /* Address (double, as a decimal) */
   arg xData
 return 'ADL'length(xData)/2'('x2d(xData)')'
 
-cl: procedure            /* Character with length */
+cl: procedure expose g.  /* Character with length */
   parse arg s,n
   if n = '' then n = length(s)
 return 'CL'n||quote(s)
@@ -2910,10 +2910,11 @@ xl: procedure            /* Hex with length */
   arg xData .
 return 'XL'length(xData)/2"'"xData"'"
 
-quote: procedure
+quote: procedure expose g.
   parse arg s
-  if pos("'",s) > 0 then s = replace("'","''",s)
-  if pos("&",s) > 0 then s = replace("&","&&",s)
+  if pos(g.0APOST,s) > 0 then s = replace(g.0APOST,g.0APOST2,s)
+  if pos(g.0AMP,s) > 0 then s = replace(g.0AMP,g.0AMP2,s)
+  if \g.0EBCDIC_ENVIRONMENT then s = toASCII(s)
 return "'"s"'"
 
 toASCII: procedure expose g.
@@ -3843,6 +3844,12 @@ prolog:
                '535455565758595A'x     ||, /* STUVWXYZ   */
                '30313233343536373839'x     /* 0123456789 */
 
+  /* EBCDIC characters that are duplicated in character constants */
+  g.0APOST  = '7D'x                        /* '          */
+  g.0APOST2 = '7D7D'x                      /* ''         */
+  g.0AMP    = '50'x                        /* &          */
+  g.0AMP2   = '5050'x                      /* &&         */
+  
   address TSO 'SUBCOM ISREDIT'
   g.0EDITENV = rc = 0
   if g.0EDITENV
