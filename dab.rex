@@ -3713,6 +3713,7 @@ return bAlreadySorted
 
 prolog:
   call setLoc 0       /* Location counter from start of module (integer) */
+  g.0INST.0 = 0       /* Number of instructions in the architecture      */
   g.0INST   = 0       /* Number of instructions emitted                  */
   g.0TODO   = 0       /* Number of bad instructions (TODO's) emitted     */
   g.0HARDBLANK = 'ff'x /* Hard blank to help with parsing                */
@@ -3741,6 +3742,7 @@ prolog:
     if left(sMnemonic,1) <> '*'
     then call addInst sMnemonic,xOpCode,sFormat,sFlag,sArch,sDesc,sHint
   end
+  say 'DIS0000I Loaded' g.0INST.0 g.0ARCHNAME 'instructions'
   do i = i while sourceline(i) <> 'BEGIN-EXTENDED-BRANCH-MNEMONICS'
   end
   do i = i+1 while sourceline(i) <> 'END-EXTENDED-BRANCH-MNEMONICS'
@@ -4101,6 +4103,7 @@ addInst: procedure expose g.
   parse arg sMnemonic,xOpCode,sFormat,sFlag,sArch,sDesc,sHint
   if pos(g.0ARCH,sArch) > 0
   then do /* Instruction is implemented in this architecture */
+    g.0INST.0 = g.0INST.0 + 1
     if g.0MNEM.sMnemonic <> ''
     then say 'DIS0003E Already defined:' sMnemonic 'as' g.0MNEM.sMnemonic
     g.0MNEM.sMnemonic = xOpCode
