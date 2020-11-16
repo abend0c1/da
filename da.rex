@@ -1646,6 +1646,7 @@ handleTag: procedure expose g.
       if isHex(xLoc)                /* If hex is valid                     */
       then xLoc = stripx(xLoc)      /* Then strip leading zeros            */
       else xLoc = g.0XLOC           /* Else use the current location       */
+      call addDot xLoc
       call setLabel sLabel,xLoc     /* Set user-defined label              */
       call refLabel sLabel,xLoc     /* Refer to it so it is not pruned     */
     end
@@ -1882,13 +1883,22 @@ saveUndefinedLabels:
       if g.0ASS.nLoc = ''
       then do
         xLoc = d2x(nLoc)
-        sLabel = left(getLabel(xLoc),8)
+        sLabel = getLabel(xLoc)
         xLocRef = g.0REF.nLoc
         n = g.0STMT#.xLocRef
         parse var g.0STMT.n sInst sOperands .
-        call save '*' sLabel left(xLoc,8),
-                  right(g.0CLENG.xLoc,6) right(xLocRef,8),
-                  left(sInst,6) sOperands
+        if length(sLabel) <= 8
+        then do
+          call save '*' left(sLabel,8) left(xLoc,8),
+                    right(g.0CLENG.xLoc,6) right(xLocRef,8),
+                    left(sInst,6) sOperands
+        end
+        else do
+          call save '*' sLabel
+          call save '*         ' left(xLoc,8),
+                    right(g.0CLENG.xLoc,6) right(xLocRef,8),
+                    left(sInst,6) sOperands
+        end
         n = g.0EQU.0 + 1
         g.0EQU.0 = n
         g.0EQU.n = sLabel "EQU   @+X'"xLoc"'," ||,
