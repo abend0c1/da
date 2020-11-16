@@ -2029,7 +2029,7 @@ emitStmt: procedure expose g.
   parse arg sLabel,sStmt
   if length(sLabel) > 8
   then do
-    call emit sLabel    'ds 0x'
+    call emit sLabel    'equ *'
     call emit '        ' sStmt
   end
   else call emit left(sLabel,8) sStmt
