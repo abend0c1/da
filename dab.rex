@@ -860,7 +860,7 @@ trace o
    *-------------------------------------------------------------------
   */
   do n = 1 to g.0LINE
-    parse var g.0STMT.n sOp sOperand sDesc 100 bIsCode +1 102 xLoc8 +8 .
+    parse var g.0STMT.n sOp sOperand sDesc 100 xLoc8 +8 .
     if xLoc8 <> '' /* Only interested in code and data */
     then do
       xLoc = stripx(xLoc8)
@@ -3273,7 +3273,7 @@ saveStmt: procedure expose g.
   sInst = left(sMnemonic,nMnemonic) sOperands
   nInst = max(length(sInst),29)
   sStmt = '        ' left(sInst,nInst) sComment
-  call save overlay(g.0ISCODE sOverlay,sStmt,100)
+  call save overlay(sOverlay,sStmt,100)
 return
 
 db: procedure expose g.       /* Unsigned 12-bit displacement off base */

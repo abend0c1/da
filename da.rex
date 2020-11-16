@@ -638,7 +638,7 @@ END-JCL-COMMENTS
 **            20201104 AA  Added options: 360, 370, 390 and Z        **
 **                         to disassemble System/360, System/370,    **
 **                         System/390 and z/Architecture modules.    **
-**                         z/Architecture is the default. 
+**                         z/Architecture is the default.            **
 **            20201027 AA  Added CA tag for ASCII text.              **
 **            20200825 AA  Allowed hex to be supplied on the command **
 **                         line.                                     **
@@ -852,7 +852,7 @@ trace o
    *-------------------------------------------------------------------
   */
   do n = 1 to g.0LINE
-    parse var g.0STMT.n sOp sOperand sDesc 100 bIsCode +1 102 xLoc8 +8 .
+    parse var g.0STMT.n sOp sOperand sDesc 100 xLoc8 +8 .
     if xLoc8 <> '' /* Only interested in code and data */
     then do
       xLoc = stripx(xLoc8)
@@ -3207,7 +3207,7 @@ saveStmt: procedure expose g.
   sInst = left(sMnemonic,nMnemonic) sOperands
   nInst = max(length(sInst),29)
   sStmt = '        ' left(sInst,nInst) sComment
-  call save overlay(g.0ISCODE sOverlay,sStmt,100)
+  call save overlay(sOverlay,sStmt,100)
 return
 
 db: procedure expose g.       /* Unsigned 12-bit displacement off base */
