@@ -1,0 +1,17 @@
+(
+begin_program=1C,
+workarea_size=28,
+storage_flags=2C,
+get_work_area=30,
+is_it_stop=BC,
+is_it_start=CC,
+copy_params=DC,
+move_params=EC,
+delete_command=FA,
+enable_modify=102,
+set_rc12=114,
+set_rc0=11C,
+restore_registers=11E,
+extract_plist=130,
+return_to_caller=122
+)

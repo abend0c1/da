@@ -1,0 +1,64 @@
+1                                  *****  M O D U L E   S U M M A R Y  *****
+0    MEMBER NAME:  GETCMD                                                                 MAIN ENTRY POINT:    00000000
+0    LIBRARY:      SYSLIB                                                                 AMODE OF MAIN ENTRY POINT: 31
+0        NO ALIASES **
+-------------------------------------------------------------------------------------------------------------------------
+0                       ****          ATTRIBUTES OF MODULE           ****
+0                **   BIT  STATUS         BIT  STATUS         BIT  STATUS         BIT  STATUS   **
+0                      0  RENT             1  REUS             2  NOT-OVLY         3  NOT-TEST
+                       4  NOT-OL           5  BLOCK            6  EXEC             7  1-TXT
+                       8  NOT-DC           9  ZERO-ORG         10 EP-ZERO          11 NO-RLD
+                       12 EDIT             13 NO-SYMS          14 F-LEVEL          15 NOT-REFR
+0------------------------------------------------------------------------------------------------------------------------
+-                                    MODULE SSI:        NONE
+                                     APFCODE:           00000000
+                                     RMODE:             ANY
+                                     LONGPARM:          NO
+
+
+0                   *****LOAD MODULE PROCESSED EITHER BY VS LINKAGE EDITOR OR BINDER
+1                                        LISTING OF LOAD MODULE GETCMD                                      PAGE 0001
+
+0
+0RECORD# 1     TYPE 20 - CESD     ESDID 1                      ESD SIZE 16
+0               CESD#    SYMBOL    TYPE     ADDRESS     R/R/A    ID/LENGTH(DEC)   (HEX)
+                   1    GETCMD    00(SD)     000000      06            316         13C
+0RECORD# 2     TYPE 80 - IDR    SUBTYPE 01                    DATA SIZE 248
+0            00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000  00000000
+             00000000  00000000
+0RECORD# 3     TYPE 80 - IDR    SUBTYPE 02                    DATA SIZE 19
+0            F5F6F9F5  D7D4C2F0  F1400203  20295F01  61713F
+0RECORD# 4     TYPE 80 - IDR    SUBTYPE 84                    DATA SIZE 18
+0            800100F5  F6F9F6F2  F3F4F0F0  40010620  295F
+0RECORD# 5     TYPE 0D - CONTROL            CONTROL SIZE 4                   RLD/CTL COUNT 0   CCW 06000000 40000140
+0                 CESD#   LENGTH
+                     1     0140
+0RECORD# 6                                              T E X T
+ 000000    A7F4000E.C7C5E3C3 D4C44040 F2F0F2F0 61F1F061 F2F140F1 F67AF1F7,90ECD00C   *x4..GETCMD  2020.10.21 16:17....*
+ 000020    18CF(R12=0)1841 (R4=>PLIST 'Parameter List')47F0C030 (F)0000004C 00000012 ,5800C028 58F0C02C 58E00010 58EE0304   *.....0.....<.........0..........*
+ 000040    58EE00A0 B218E000 12FFA774 006C50D0 10045010 D00818D1 (R13=>WA 'Work Area')1244A784 005D9180   *..........x..%&...&....J..xd.)j.*
+ 000060    4008A7E4 00594180 D0484110 C1305081 00009201 10089200 10090A28 5880D048 (R8=>COM 'Command Data Area')  * .xU........A.&a..k...k.........*
+ 000080    58708000 58104008 50701000 58704000 92007000 58704004 D7FF7000 70005870   *...... .&..... .k..... .P.......*
+ 0000A0    8004 (R7=>CIB 'Command Input Buffer') 1277 A784002F 58904000 95447004 A7740006 92C69000 A7F40012 95407004   *....xd.... .n...x...kF..x4..n ..*
+ 0000C0    A7740006 92D79000 A7F4000A 95047004 A7740015 92E29000 A7F40002 4850700E   *x...kP..x4..n...x...kS..x4...&..*
+ 0000E0    06501255 A744000B 58904004 D2009000 70104450 C0ECA7F4 00021117 41008004   *.&..x..... .K......&..x4........*
+ 000100    0A224110 00051111 41008004 11000A22 A7F40006 41F0000C A7F40003 1FFF58D0   *................x4...0..x4......*
+ 000120    D00458E0 D00C980C D01407FE ('').00000000 00000000 00000000 00000000 00000000   *......q.........................*
+- ******END OF LOAD MODULE LISTING
+1                             NUMERICAL MAP AND CROSS-REFERENCE LIST OF LOAD MODULE GETCMD                      PAGE 0001
+
+-                 CONTROL SECTION                                        ENTRY
+                   LMOD LOC     NAME      LENGTH  TYPE  RMODE             LMOD LOC  CSECT LOC      NAME
+0                       00    GETCMD         13C   SD    31
+0LENGTH OF LOAD MODULE     140
+1                                        ALPHABETICAL MAP OF LOAD MODULE GETCMD                                 PAGE 0002
+
+-           CONTROL SECTION                                        ENTRY
+                NAME     LMOD LOC   LENGTH  TYPE   RMODE              NAME    LMOD LOC  CSECT LOC  CSECT NAME
+0             GETCMD          00       13C   SD     31
+-**    END OF MAP AND CROSS-REFERENCE LISTING
