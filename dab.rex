@@ -747,7 +747,7 @@ trace o
     say 'DIS0017I Reading storage references from file:' sFileTags
     sTag = getLine(hTag)
     do while g.0RC = 0
-      sTags = sTags sTag
+      sTags = sTags || sTag
       sTag = getLine(hTag)
     end
     rc = closeFile(hTag)
