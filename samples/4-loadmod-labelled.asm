@@ -96,7 +96,7 @@ copy_params equ *
 
 move_params equ *
          MVC   0(1,R9),CIB_10          Move Character                                              000000EC D20090007010 SSa     1 
-         EX    R5,move_params          Execute                                                     000000F2 4450C0EC     RXa       
+         EX    R5,move_params          Execute MVC 0(1,R9),CIB_10                                  000000F2 4450C0EC     RXa       
          J     delete_command                                                                      000000F6 A7F40002     RIc       
 
 delete_command equ *

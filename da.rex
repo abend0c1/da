@@ -3538,6 +3538,7 @@ return sLabel
 setLabel: procedure expose g.
   parse arg sLabel,xLoc
   g.0LABEL.xLoc = sLabel      /* Assign a label to this location */
+  sLabel = translate(sLabel)  /* Convert to upper case for indexing */
   g.0XLOC.sLabel = xLoc       /* Facilitate retrieving location of a label */
 return
 
