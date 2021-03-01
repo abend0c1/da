@@ -1,3 +1,4 @@
+![JAMZ icon](images/hal9000-128x128.png)
 # DA - Mainframe Disassembler in REXX
 
 ## FUNCTION
