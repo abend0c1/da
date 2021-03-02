@@ -241,13 +241,13 @@ The meaning of the inserted markup is:
 
 Markup | Meaning
 ---|---
-<b style="color:red;">.</b>|Decode the following hex as data (the data type is automatic)
-<b style="color:red;">,</b>|Decode the following hex as code
-<b style="color:red;">(R12=0)</b>|Assume that R12 points to offset 0 (insert a USING statement for R12)
-<b style="color:red;">(R4=>PLIST 'Parameter List')</b>|Assume that R4 points to a DSECT called PLIST, and insert a section heading 'Parameter List' before the DSECT definition. Subsequent storage references based on R4 will be added to the DSECT.
-<b style="color:red;">(F)</b>|Decode the following hex as data (type is fullword)
-<b style="color:red;">(R13=>WA 'Work Area')</b>|Assume that R13 points to a DSECT called WA, and insert a section heading 'Work Area' before the DSECT definition.  Subsequent storage references based on R13 will be added to the DSECT.
-<b style="color:red;">('').</b>|Insert an empty comment and treat the following hex as data
+<b style="color:red;">.</b>|Decodes the following hex as data. The data type is automatic (i.e. it is guessed based on the alignment and the content)
+<b style="color:red;">,</b>|Decodes the following hex as code
+<b style="color:red;">(R12=0)</b>|Declares that R12 points to offset 0 (emits a USING statement for R12)
+<b style="color:red;">(R4=>PLIST 'Parameter List')</b>|Declares that R4 points to a DSECT called PLIST, and emits a section heading 'Parameter List' before the DSECT definition. Subsequent storage references based on R4 will be added to the DSECT.
+<b style="color:red;">(F)</b>|Decodes the following hex as data (the type is explicitly declared as fullword)
+<b style="color:red;">(R13=>WA 'Work Area')</b>|Declares that R13 points to a DSECT called WA, and emits a section heading 'Work Area' before the DSECT definition.  Subsequent storage references based on R13 will be added to the DSECT.
+<b style="color:red;">('').</b>|Emits an empty comment and decodes the following hex as data. The data type remains as fullwords unless you reset it with '/'
 
 
 The result of disassembling this input is:
@@ -430,7 +430,7 @@ WA_48    DS    F
          END
 ```
 
-## SYNTAX
+## COMMAND SYNTAX
 
 ### DA (on z/OS only)
 On z/OS you can use the DA edit macro (which needs ISPF/EDIT). The syntax is:
