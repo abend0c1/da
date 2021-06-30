@@ -122,9 +122,9 @@ Disassembly is usually an iterative process:
 
 1. Optionally, tag the AMBLIST output. There is much more detail on tagging in the [USAGE](#usage) section below.
 
-   Tags are strings enclosed in parentheses and can be used to:
+   Tags are strings enclosed in parentheses and can be used as follows:
 
-   * Mark data areas as having particular data types.
+   * You can mark data areas as having particular data types.
 
      For example:
 
@@ -141,7 +141,7 @@ Disassembly is usually an iterative process:
               DC    B'10001111'
      ```
 
-   * Assign a label at an offset into the code.
+   * You can assign a label at an offset into the code.
 
      For example:
 
@@ -154,7 +154,7 @@ Disassembly is usually an iterative process:
      myLabel  B     16(,R12)
      ```
 
-   * Explicitly assign a label to a code offset:
+   * You can explicitly assign a label to a code offset:
 
      For example:
 
@@ -168,7 +168,7 @@ Disassembly is usually an iterative process:
      myData   DC    XL2'1234'
      ```
 
-   * Specify and/or drop a base register for the subsequent code.
+   * You can specify and/or drop a base register for the subsequent code.
 
      For example:
      `(R12)18CF47F0C002(R12=)`
@@ -181,7 +181,7 @@ Disassembly is usually an iterative process:
               DROP  R12
      ```
 
-   * Specify a base register for a named DSECT.
+   * You can specify a base register for a named DSECT.
 
      This is very powerful because it causes a DSECT to
      be built containing fields for each displacement
@@ -206,7 +206,7 @@ Disassembly is usually an iterative process:
       WA_44    DS    XL4
       ```
 
-   * Do some other useful things (see the [TAGS](#tags) section below)
+   * You can do some other useful things as described in the [TAGS](#tags) section below.
 
 1. Assemble the disassembled source file.
 
@@ -682,8 +682,8 @@ immediately before the hex to which they apply:
   | Format specification                        | Example    | Meaning                                                 |
   | ------------------------------------------- | ---------- | ------------------------------------------------------- |
   | [duplication_factor][type][length_modifier] | `4XL3`     | Four groups of 3 bytes of hex                           |
-  | [type][length_modifier]=variable_name       | `AL1=len`  | Assign the next byte (in decimal) to REXX variable $len |
-  | [type]L[length_expression]                  | `CL$len+1` | Character string of length $len+1 bytes                 |
+  | [type][length_modifier]=variable_name       | `AL1=len`  | Assign the next byte (in decimal) to REXX variable `$len` |
+  | [type]L[length_expression]                  | `CL$len+1` | Character string of length `$len+1` bytes               |
 
   The default *duplication_factor* (the repetition count for the field) is 1.
 
@@ -713,9 +713,9 @@ immediately before the hex to which they apply:
   | `S`  | Storage Reference | 2      |
   | `X`  | Hex               | 1      |
 
-  If you specify an unsupported data type then the default format of `X` is used.
+  If you specify an unsupported data type then the default format (`X`) is used.
   If you specify just a number then that number is treated as the length of a type `X` field.
-  As a happy side effect, specifying `3 3 3 3` or even just `4x3` (which you could read as "four by three bytes"), is equivalent to `4XL3` or `XL3 XL3 XL3 XL3`.
+  As a happy side effect, specifying `3 3 3 3` or even just `4x3` (which you could read as "four by three bytes"), is equivalent to `XL3 XL3 XL3 XL3` and `4XL3` respectively.
 
   For example<sup>1</sup> (spaces have been inserted for clarity):
 

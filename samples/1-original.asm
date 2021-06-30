@@ -51,7 +51,7 @@
 **                                                                   **
 **            3.  After the first call to this routine, the ECB      **
 **                address is set.  The calling program may choose to **
-**                wait on this ECB, which is posted by z/OS when      **
+**                wait on this ECB, which is posted by z/OS when     **
 **                an operator has issued a command to this address   **
 **                space, and call this routine to obtain the command **
 **                just issued.  Alternatively, the calling program   **
