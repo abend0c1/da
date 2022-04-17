@@ -4003,7 +4003,7 @@ emitFile: procedure expose g.
     end
     when g.0ZOS & isDDName(sFile) then do /* DD:ddname */
       parse var sFile 'DD:'sDD .
-      address TSO 'EXECIO * DISKW' sDD '(FINIS'
+      address TSO 'EXECIO' queued() 'DISKW' sDD '(FINIS'
     end
     otherwise do
       hFile = openFile(sFile,'OUTPUT')
