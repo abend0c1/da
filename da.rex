@@ -4790,8 +4790,8 @@ TIO     9D00 SI2    c 67.. Test I/O
 CLRIO   9D01 SI2    c .79. Clear I/O
 HIO     9E00 SI2    c 67.. Halt I/O
 HDV     9E01 SI2    c .79. Halt Device
-TCH     9F00 SI2    c .79Z Test Channel
-CLRCH   9F01 SI2    c ..9Z Clear Channel
+TCH     9F00 SI2    c .79. Test Channel
+CLRCH   9F01 SI2    c ..9. Clear Channel
 VAE     A400 VST    . .7.. Vector Add [Vec+Stg] (SH)
 VSE     A401 VST    . .7.. Vector Subtract [Vec-Stg] (SH)
 VME     A402 VST    . .7.. Vector Multiply [Vec*Stg] (LH<-SH)
@@ -5005,9 +5005,11 @@ SIGP    AE   RSA    c .79Z Signal Processor
 MC      AF   SI     . .79Z Monitor Call
 LRA     B1   RXa    c .79Z Load Real Address (32) =4 . A
 CONCS   B200 S      . .7.. Connect Channel Set
+LBEAR   B200 S      . ...Z Load BEAR =8
 DISCS   B201 S      . .7.. Disconnect Channel Set
+STBEAR  B201 S      . ...Z Store BEAR =8
 STIDP   B202 S      . .79Z Store CPU ID =8
-STIDC   B203 S      c .79Z Store Channel ID (370) =4
+STIDC   B203 S      c .79. Store Channel ID (370) =4
 SCK     B204 S      c .79Z Set Clock =8
 STCK    B205 S      c .79Z Store Clock =8
 SCKC    B206 S      . .79Z Set Clock Comparator =8
