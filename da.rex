@@ -1305,6 +1305,22 @@ generateTestBed: procedure expose g.
     call emit '         PGOUT'
     call emit "         DC    X'B22F0000'"
     call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         CMSG'
+    call emit "         DC    X'0105'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         TMSG'
+    call emit "         DC    X'0106'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         TMPS'
+    call emit "         DC    X'0108'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         CMPS'
+    call emit "         DC    X'0109'"
+    call emit '         MEND'
   end
   call emit '         START'
   call emit '         USING *,R0,R1'
