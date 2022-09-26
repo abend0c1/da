@@ -738,6 +738,11 @@ trace o
   address ISPEXEC 'CONTROL ERRORS RETURN'
   numeric digits 22
   g. = ''
+  parse source t1 t2 t3 t4 t5 t6 t7 t8 t9
+  g.0ZOS = wordpos(t1,'TSO MVS') > 0
+  g.0NIX = t1 = 'UNIX' | t8 = 'OMVS'
+  g.0WIN = pos('WIN',t1) > 0
+  g.0EBCDIC_ENVIRONMENT = g.0ZOS | t8 = 'OMVS' /* Platform is EBCDIC */
 
   call getOptions sOptions
   call prolog
