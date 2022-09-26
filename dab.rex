@@ -658,6 +658,7 @@ END-JCL-COMMENTS
 **                                                                   **
 ** HISTORY  - Date     By  Reason (most recent at the top please)    **
 **            -------- --- ----------------------------------------- **
+**            20220920 AA  Added new z16 instructions.               **
 **            20201106 AA  Added System/370 Vector Facility opcodes. **
 **            20201106 AA  Changed the TEST option output such that  **
 **                         the opcode of each instruction is emitted **
@@ -678,7 +679,7 @@ trace o
   signal on syntax name onSyntax
   numeric digits 22
   g. = ''
-  parse source t1 t2 t3 t4 t4 t6 t7 t8 t9
+  parse source t1 t2 t3 t4 t5 t6 t7 t8 t9
   g.0ZOS = wordpos(t1,'TSO MVS') > 0
   g.0NIX = t1 = 'UNIX' | t8 = 'OMVS'
   g.0WIN = pos('WIN',t1) > 0
@@ -1373,6 +1374,22 @@ generateTestBed: procedure expose g.
     call emit '         PGOUT'
     call emit "         DC    X'B22F0000'"
     call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         CMSG'
+    call emit "         DC    X'0105'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         TMSG'
+    call emit "         DC    X'0106'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         TMPS'
+    call emit "         DC    X'0108'"
+    call emit '         MEND'
+    call emit '         MACRO'
+    call emit '         CMPS'
+    call emit "         DC    X'0109'"
+    call emit '         MEND'    
   end
   call emit '         START'
   call emit '         USING *,R0,R1'
@@ -4177,7 +4194,7 @@ genInst: procedure expose g.
       R1 = 2
       R2 = 2
     end
-    when sMnemonic = 'KDSA' then do
+    when wordpos(sMnemonic,'KDSA SORTL') > 0 then do
       R1 = 2
       R2 = 4
     end
@@ -4666,6 +4683,10 @@ RRFa4  8 O1 +4 R3 +1    M4 +1  R1 +1  R2 +1
 RRFa4  . r(R1) r(R2) r(R3) m(M4)
 RRFb   8 O1 +4 R3 +1    .  +1  R1 +1  R2 +1
 RRFb   . r(R1) r(R2) r(R3)
+RRFb1  8 O1 +4 R3 +1    M4 +1  R1 +1  R2 +1
+RRFb1  . r(R1) r(R2) r(R3) om(M4)
+RRFb4  8 O1 +4 R3 +1    M4 +1  R1 +1  R2 +1
+RRFb4  . r(R1) r(R2) r(R3) u(M4)
 RRFc   8 O1 +4 M3 +1     . +1  R1 +1  R2 +1
 RRFc   . r(R1) r(R2) om(M3)
 RRFc3  8 O1 +4 M3 +1     . +1  R1 +1  R2 +1
@@ -4676,8 +4697,6 @@ RRFe   8 O1 +4 M3 +1     . +1  R1 +1  R2 +1
 RRFe   . r(R1) m(M3) r(R2)
 RRFe4  8 O1 +4 M3 +1    M4 +1  R1 +1  R2 +1
 RRFe4  . r(R1) u(M3) r(R2) m(M4)
-RRFb4  8 O1 +4 R3 +1    M4 +1  R1 +1  R2 +1
-RRFb4  . r(R1) r(R2) r(R3) u(M4)
 RRS   12 O1 +2 R1 +1    R2 +1  B4 +1  D4 +3  M3 +1  . +1 O2 +2
 RRS    . r(R1) r(R2) m(M3) db(D4,B4)
 RSa    8 O1 +2 R1 +1    .  +1  B2 +1  D2 +3
@@ -4728,6 +4747,8 @@ SIL   12 O1 +4 B1 +1    D1 +3  I2 +4
 SIL    . db(D1,B1) s2(I2)               t(TL,B1,D1,T1)
 SIY   12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
 SIY    . ldb(DH1||DL1,B1) s2(I2)        t(TL,B1,DH1||DL1,T1)
+SIY1  12 O1 +2  . +2    B1 +1 DL1 +3 DH1 +2              O2 +2
+SIY1   . ldb(DH1||DL1,B1)               t(TL,B1,DH1||DL1,T1)
 SIYm  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
 SIYm   . ldb(DH1||DL1,B1) m(I2)         t(1,B1,DH1||DL1)
 SIYx  12 O1 +2 I2 +2    B1 +1 DL1 +3 DH1 +2              O2 +2
@@ -4793,8 +4814,12 @@ VRRa5 12 O1 +2 V1 +1    V2 +1   . +2  M5 +1  M4 +1 M3 +1       RXB +1 O2 +2
 VRRa5  . v(V1) v(V2) fpf(M3) m(M4) u(M5)
 VRRb  12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M5 +1  . +1 M4 +1 RXB +1 O2 +2
 VRRb   . v(V1) v(V2) v(V3) ves(M4) m(M5)
+VRRb3 12 O1 +2 V1 +1    V2 +1  V3 +1   . +4                    RXB +1 O2 +2
+VRRb3  . v(V1) v(V2) v(V3)
 VRRb4 12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M5 +1  . +1 M4 +1 RXB +1 O2 +2
 VRRb4  . v(V1) v(V2) v(V3) ves(M4) om(M5)
+VRRc  12 O1 +2 V1 +1    V2 +1  V3 +1   . +2        M5 +1 M4 +1 RXB +1 O2 +2
+VRRc   . v(V1) v(V2) v(V3) m(M4)   m(M5)
 VRRc3 12 O1 +2 V1 +1    V2 +1  V3 +1   . +4                    RXB +1 O2 +2
 VRRc3  . v(V1) v(V2) v(V3)
 VRRc4 12 O1 +2 V1 +1    V2 +1  V3 +1   . +3              M4 +1 RXB +1 O2 +2
@@ -4821,6 +4846,10 @@ VRRh  12 O1 +2  . +1    V1 +1  V2 +1   . +1  M3 +1  . +2       RXB +1 O2 +2
 VRRh   . v(V1) v(V2) m(M3)
 VRRi  12 O1 +2 R1 +1    V2 +1   . +2  M3 +1   . +2             RXB +1 O2 +2
 VRRi   . r(R1) v(V2) m(M3)
+VRRj  12 O1 +2 V1 +1    V2 +1  V3 +1   . +1  M4 +1  . +2       RXB +1 O2 +2
+VRRj   . v(V1) v(V2) v(V3) m(M4)
+VRRk  12 O1 +2 V1 +1    V2 +1   . +2  M3 +1   . +2             RXB +1 O2 +2
+VRRk   . v(V1) v(V2) m(M3)
 VRSa  12 O1 +2 V1 +1    V2 +1  B2 +1  D2 +3  M4 +1             RXB +1 O2 +2
 VRSa   . v(V1) v(V3) db(D2,B2) ves(M4)
 VRSb  12 O1 +2 V1 +1    R3 +1  B2 +1  D2 +3   . +1             RXB +1 O2 +2
@@ -5085,8 +5114,8 @@ TIO     9D00 SI2    c 67.. Test I/O
 CLRIO   9D01 SI2    c .79. Clear I/O
 HIO     9E00 SI2    c 67.. Halt I/O
 HDV     9E01 SI2    c .79. Halt Device
-TCH     9F00 SI2    c .79Z Test Channel
-CLRCH   9F01 SI2    c ..9Z Clear Channel
+TCH     9F00 SI2    c .79. Test Channel
+CLRCH   9F01 SI2    c ..9. Clear Channel
 VAE     A400 VST    . .7.. Vector Add [Vec+Stg] (SH)
 VSE     A401 VST    . .7.. Vector Subtract [Vec-Stg] (SH)
 VME     A402 VST    . .7.. Vector Multiply [Vec*Stg] (LH<-SH)
@@ -5300,9 +5329,11 @@ SIGP    AE   RSA    c .79Z Signal Processor
 MC      AF   SI     . .79Z Monitor Call
 LRA     B1   RXa    c .79Z Load Real Address (32) =4 . A
 CONCS   B200 S      . .7.. Connect Channel Set
+LBEAR   B200 S      . ...Z Load BEAR =8
 DISCS   B201 S      . .7.. Disconnect Channel Set
+STBEAR  B201 S      . ...Z Store BEAR =8
 STIDP   B202 S      . .79Z Store CPU ID =8
-STIDC   B203 S      c .79Z Store Channel ID (370) =4
+STIDC   B203 S      c .79. Store Channel ID (370) =4
 SCK     B204 S      c .79Z Set Clock =8
 STCK    B205 S      c .79Z Store Clock =8
 SCKC    B206 S      . .79Z Set Clock Comparator =8
@@ -5379,6 +5410,7 @@ STCKE   B278 S      c ..9Z Store Clock Extended =16
 SACF    B279 S      . ..9Z Set Address Space Control Fast
 STCKF   B27C S      c ..9Z Store Clock Fast =8
 STSI    B27D S      c ..9Z Store System Information
+QPACI   B28F S      c ...Z Query Processor Activity Counter =8
 SRNM    B299 S      . ..9Z Set BFP Rounding Mode (2 bit)
 STFPC   B29C S      . ..9Z Store Floating Point Control =4
 LFPC    B29D S      . ..9Z Load Floating Point Control =4
@@ -5623,8 +5655,10 @@ KM      B92E RRE    c ...Z Cipher Message
 KMC     B92F RRE    c ...Z Cipher Message with Chaining
 CGFR    B930 RRE    C ...Z Compare (64<-32)
 CLGFR   B931 RRE    C ...Z Compare Logical (64<-32)
+SORTL   B938 RRE    c ...Z Sort Lists
 DFLTCC  B939 RRFa   c ...Z Deflate Conversion Call
 KDSA    B93A RRE    c ...Z Compute Digital Signature Authentication
+NNPA    B93B RRE0   c ...Z Neural Network Processing Assist
 PRNO    B93C RRE    c ...Z Perform Random Number Operation
 KIMD    B93E RRE    c ...Z Compute Intermediate Message Digest
 KLMD    B93F RRE    c ...Z Compute Last Message Digest
@@ -5664,6 +5698,7 @@ DLGR    B987 RRE    A ...Z Divide Logical (64<-128)
 ALCGR   B988 RRE    A ...Z Add Logical with Carry (64)
 SLBGR   B989 RRE    A ...Z Subtract Logical with Borrow (64)
 CSPG    B98A RRE    C ...Z Compare and Swap and Purge (64)
+RDP     B98B RRFb1  . ...Z Reset DAT Protection
 EPSW    B98D RRE    . ..9Z Extract PSW
 IDTE    B98E RRFb4  . ..9Z Invalidate DAT Table Entry
 CRDTE   B98F RRFb4  C ...Z Compare and Replace DAT Table Entry
@@ -5972,19 +6007,32 @@ VSTRL   E63D VSI    . ...Z Vector Store Rightmost with Length
 VSTRLR  E63F VRSd   . ...Z Vector Store Rightmost with Length
 VLIP    E649 VRIh   . ...Z Vector Load Immediate Decimal
 VCVB    E650 VRRi   c ...Z Vector Convert to Binary
+VCLZDP  E651 VRRk   c ...Z Vector Count Leading Zero Digits
 VCVBG   E652 VRRi   c ...Z Vector Convert to Binary
+VUPKZH  E654 VRRk   . ...Z Vector Unpack Zoned High
+VCNF    E655 VRRa4  . ...Z Vector FP Convert to NNP
+VCLFNH  E656 VRRa4  . ...Z Vector FP Convert and Lengthen from NNP High
 VCVD    E658 VRIi   c ...Z Vector Convert to Decimal
 VSRP    E659 VRIg   c ...Z Vector Shift and Round Decimal
 VCVDG   E65A VRIi   c ...Z Vector Convert to Decimal
 VPSOP   E65B VRIg   c ...Z Vector Perform Sign Operation Decimal
+VUPKZL  E65C VRRk   . ...Z Vector Unpack Zoned Low
+VCFN    E65D VRRa4  . ...Z Vector Convert from NNP
+VCLFNL  E65E VRRa4  . ...Z Vector FP Convert and Lengthen from NNP Low
 VTP     E65F VRRg   c ...Z Vector Test Decimal
+VPKZR   E670 VRIf   c ...Z Vector Pack Zoned Register
 VAP     E671 VRIf   c ...Z Vector Add Decimal
+VSRPR   E672 VRIf   c ...Z Vector Shift and Round Decimal Register
 VSP     E673 VRIf   c ...Z Vector Subtract Decimal
+VSCHP   E674 VRRb   . ...Z Decimal Scale and Convert to HFP
+VCRNF   E675 VRRc   . ...Z Vector FP Convert and Round to NNP
 VCP     E677 VRRh   c ...Z Vector Compare Decimal
 VMP     E678 VRIf   c ...Z Vector Multiply Decimal
 VMSP    E679 VRIf   c ...Z Vector Multiply and Shift Decimal
 VDP     E67A VRIf   c ...Z Vector Divide Decimal
 VRP     E67B VRIf   c ...Z Vector Remainder Decimal
+VSCSHP  E67C VRRb3  . ...Z Decimal Scale and Convert and Split to HFP
+VCSPH   E67D VRRj   . ...Z Vector Convert HFP to Scaled Decimal
 VSDP    E67E VRIf   c ...Z Vector Shift and Divide Decimal
 VLEB    E700 VRX3   . ...Z Vector Load Element (8)
 VLEH    E701 VRX3   . ...Z Vector Load Element (16)
@@ -6171,6 +6219,7 @@ OIY     EB56 SIYx   A ...Z Or Immediate
 XIY     EB57 SIYx   A ...Z Exclusive-Or Immediate
 ASI     EB6A SIY    A ...Z Add Immediate (32<-8) =4 F
 ALSI    EB6E SIY    A ...Z Add Logical with Signed Immediate (32<-8) =4 F
+LPSWEY  EB71 SIY1   c ...Z Load PSW Extended
 AGSI    EB7A SIY    A ...Z Add Immediate (64<-8) =8 FD
 ALGSI   EB7E SIY    A ...Z Add Logical with Signed Immediate (64<-8) =8 FD
 ICMH    EB80 RSYbm  . ..9Z Insert Characters under Mask (high)
